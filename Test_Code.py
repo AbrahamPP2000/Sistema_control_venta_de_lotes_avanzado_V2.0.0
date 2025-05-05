@@ -385,3 +385,109 @@
 #             print("Ingrese datos válidos.")  # Mensaje de error correspondiente
 
 
+# en el archivo Payment_options tengo un error de ejecución. Cuando quiero registrar un abono nuevo en la tabla abonos extrañamente el programa me reemplaza todos los registros de la tabla Abonos con los datos del nuevo abono. Identifica dónde está el problema y OJO: solamente genérame o modifícame la porción de código para solucionar el problema y no me elimines o modifiques los comentarios que te encuentres. Te adjunto también el archivo Data_import_and_processing para que entiendas la lógica del programa.
+
+# import numpy as np
+# import matplotlib.pyplot as plt
+# from sklearn.model_selection import train_test_split
+# from sklearn.linear_model import LogisticRegression
+# from sklearn.preprocessing import StandardScaler
+#
+# # Datos sintéticos de ejemplo
+# # X: Puntaje de examen 1, Puntaje de examen 2
+# # y: Admitido (1) o No admitido (0)
+# X = np.array([
+#     [45, 85],  # Admitido
+#     [50, 90],  # Admitido
+#     [30, 60],  # No admitido
+#     [55, 75],  # Admitido
+#     [20, 40],  # No admitido
+#     [35, 70],  # No admitido
+#     [60, 95],  # Admitido
+#     [40, 65],  # No admitido
+# ])
+#
+# y = np.array([1, 1, 0, 1, 0, 0, 1, 0])
+#
+# # Dividir datos en entrenamiento y prueba
+# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+#
+# # Normalizar los datos (escalar características)
+# scaler = StandardScaler()
+# X_train_scaled = scaler.fit_transform(X_train)
+# X_test_scaled = scaler.transform(X_test)
+#
+# # Crear y entrenar el modelo
+# modelo = LogisticRegression()
+# modelo.fit(X_train_scaled, y_train)
+#
+# # Evaluar precisión del modelo
+# precision = modelo.score(X_test_scaled, y_test)
+# print(f"Precisión del modelo: {precision * 100:.2f}%")
+#
+#
+# # Función para predecir admisión
+# def predecir_admision(puntaje_examen1, puntaje_examen2):
+#     datos_entrada = scaler.transform([[puntaje_examen1, puntaje_examen2]])
+#     prediccion = modelo.predict(datos_entrada)
+#     probabilidad = modelo.predict_proba(datos_entrada)[0]
+#
+#     print(f"\nPuntajes: Examen 1 = {puntaje_examen1}, Examen 2 = {puntaje_examen2}")
+#     print(f"Probabilidad de admisión: {probabilidad[1] * 100:.2f}%")
+#
+#     if prediccion[0] == 1:
+#         print("🎉 ¡Felicidades! Serás admitido.")
+#     else:
+#         print("❌ Lo siento, no fuiste admitido.")
+#
+#
+# # Ejemplos de predicción
+# predecir_admision(55, 80)
+# predecir_admision(25, 45)
+#
+# # Visualización de la frontera de decisión
+# plt.figure(figsize=(10, 6))
+# plt.scatter(X[y == 1][:, 0], X[y == 1][:, 1], color='blue', label='Admitidos')
+# plt.scatter(X[y == 0][:, 0], X[y == 0][:, 1], color='red', label='No Admitidos')
+# plt.xlabel('Puntaje Examen 1')
+# plt.ylabel('Puntaje Examen 2')
+# plt.title('Admisión Universitaria')
+# plt.legend()
+# plt.show()
+
+############################################################################################################
+
+# class Animal:
+#     def __init__(self, nombre, edad):
+#         self.nombre = nombre
+#         self.edad = edad
+#
+#     def hablar(self):
+#         print("El animal hace un sonido")
+#
+# class Perro(Animal):
+#     def __init__(self, nombre, edad, raza):
+#         super().__init__(nombre, edad)
+#         self.raza = raza
+#         self.raza = raza
+#
+#     def hablar(self):
+#         print(f"El perro {self.nombre} ladra")
+#
+# class Gato(Animal):
+#     def __init__(self, nombre, edad, color):
+#         super().__init__(nombre, edad)
+#         self.color = color
+#
+#     def hablar(self):
+#         print(f"El gato {self.nombre} maúlla")
+#
+# perro1 = Perro("Max", 3, "Labrador")
+# gato1 = Gato("Whiskers", 2, "Negro")
+#
+# perro1.hablar()
+# gato1.hablar()
+from datetime import datetime
+current_date = datetime.now()
+print(current_date)
+

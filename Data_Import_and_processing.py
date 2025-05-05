@@ -1,4 +1,5 @@
 import csv  # Para el manejo de archivos CSV a la hora de importar datos
+import subprocess  # Para limpiar la pantalla después de cada operación.
 import pandas as pd  # Para el formato de la información a la hora de imprimir detalles de la base de datos
 import requests  # Para acceder a la página web Google Finance para obtener el precio del dólar
 from bs4 import BeautifulSoup  # Para la revisión y extracción de información de archivos html y xml de páginas web
@@ -7,10 +8,7 @@ from datetime import datetime  # Para la extracción de la fecha actual del sist
 import mysql.connector  # Para la conexión con la base de datos MySQL
 from mysql.connector import Error  # Para lanzar un mensaje de error en caso de no poder acceder a la base de datos
 from Payment_Options import PaymentOptions  # Clase del proyecto en donde están las formas posibles de pago
-from Sales_assistant import LotSalesAssistant  # Importación del asistente de compras
-import tkinter as tk  # Importación de la biblioteca necesaria para las interfaces
-from tkinter import ttk, messagebox  # Importación de los elementos de las interfaces para los mensajes
-from ttkthemes import ThemedTk  # Módulo para obtener temas visuales adicionales para las interfaces
+from Sales_assistant import LotSalesAssistant  # Nueva importación
 
 # Abraham Pelayo Pinedo
 # Centro Universitario de Ciencias Exactas e Ingenierías - Universidad de Guadalajara
@@ -21,71 +19,51 @@ from ttkthemes import ThemedTk  # Módulo para obtener temas visuales adicionale
 # Título del proyecto modular: "Sistema de control de venta de lotes avanzado"
 # ("Advanced land lot sales control system")
 
-"""Nota 1: Los comentarios en donde hay funciones "print" e "input" se dejaron en el código por razones de diseño.
-Se identifican con tres "-" antes de la línea y después del numeral "#" """
-
-"""Nota 2: El código está escrito enteramente en inglés mientras que los comentarios que documentan su 
-funcionamiento están enteramente en español."""
-
 
 # Funciones básicas
 
-def update_dollar_price(cursor):  # Actualización del precio del dólar cada vez que se ejecuta el programa
-    current_date = datetime.now()  # Obtención de la fecha y hora actuales
-    formatted_date = current_date.strftime("%Y-%m-%d")  # Formateo de la fecha de la siguiente manera: Año-Mes-Día
+def actualizar_precio_dolar(cursor):
+    # Actualización del precio del dólar cada vez que se ejecuta el programa
+    current_date = datetime.now()  # Fecha y hora actuales
+    # formatted_date = current_date.strftime("%Y-%m-%d")  # Formateo de la fecha en el formato: Año-Mes-Día
     url = "https://www.google.com/finance/quote/USD-MXN"  # URL de Google Finance para el tipo de cambio USD/MXN
     response = requests.get(url)  # Hacemos una solicitud GET a la página
-    if response.status_code == 200:  # Verificamos que la solicitud fue exitosa en base del código de estatus HTTP
+    if response.status_code == 200:  # Verificamos que la solicitud fue exitosa
         soup = BeautifulSoup(response.content, 'html.parser')  # Parseamos el contenido HTML de la página
         price_element = soup.find('div', {'class': 'YMlKec fxKbKc'})  # Extraemos el valor del tipo de cambio
         # usando el selector adecuado
         if price_element:  # Si efectivamente hay un dato en el campo buscado previamente
-            global exchange_rate  # Ponemos la variable en donde se almacena el valor del dólar como global para su
-            # fácil acceso
+            global exchange_rate  # Ponemos la variable en donde se almacena el valor del dólar como global para la
+            # inicialización del sistema experto.
             exchange_rate = price_element.text  # Obtenemos el texto del elemento
-            # --- print("Actualizando precio del dólar...")
-            status_window = tk.Toplevel()  # Generación de la interfaz
-            status_window.title("Actualización del Dólar")  # Título de la interfaz
-            # Etiqueta de la interfaz que indica la actualización del precio del dólar
-            status_label = ttk.Label(status_window, text="Actualizando precio del dólar...")
-            # Ajuste de la ubicación de la etiqueta dentro de la interfaz
-            status_label.pack(padx=20, pady=10)
-            # Se actualiza el valor del campo correspondiente de la tabla del dólar en la base de datos
-            dollar_price_query = (f"UPDATE gestion_de_lotes.dolar SET Fecha = '{formatted_date}', "
-                                  f"PrecioEnPesos = {exchange_rate} LIMIT 1")
-            cursor.execute(dollar_price_query)  # Ejecución de la consulta
-            connection.commit()  # Aplicación de los cambios
+            print("Actualizando precio del dólar...")
+            # Inserción de los datos correspondientes a la tabla del dólar en la base de datos
+            dollar_price_query = (f"INSERT INTO gestion_de_lotes.dolar (Fecha, PrecioEnPesos) VALUES (%s, %s)")
+            data = (current_date, exchange_rate)  # Ejecución de la consulta
+            cursor.execute(dollar_price_query, data)  # Ejecución de la consulta
+            conexion.commit()  # Aplicación de los cambios
             # Ruta del archivo CSV del dólar
             dollar_file_route = r'C:\Users\SERGIUS\Documents\Abraham\Proyecto modular\Archivos CSV\Dolar.csv'
             try:
-                # Lectura del archivo CSV y almacenamiento de las filas
+                # Leer el archivo CSV y almacenar las filas
                 with open(dollar_file_route, mode='r', newline='') as csv_file:
-                    reader_csv = csv.reader(csv_file)  # Generación de un objeto para leer un archivo CSV
-                    rows = list(reader_csv)  # Conversión del contenido a una lista para modificarlo
-                # Modificación de la primera fila con los nuevos datos
-                rows[1] = [formatted_date, exchange_rate]  # Modifica la fila 1 (índice 0 suele ser el encabezado)
-                # Se escribe el archivo CSV con las filas actualizadas
+                    reader_csv = csv.reader(csv_file)
+                    rows = list(reader_csv)  # Convertir el contenido a una lista para modificarlo
+
+                # Modificar la primera fila con los nuevos datos
+                rows[1] = [current_date, exchange_rate]  # Modifica la fila 1 (índice 0 suele ser el encabezado)
+
+                # Escribir el archivo CSV con las filas actualizadas
                 with open(dollar_file_route, mode='w', newline='') as csv_file:
-                    writer_csv = csv.writer(csv_file)  # Generación de un objeto para escribir en un archivo CSV
-                    writer_csv.writerows(rows)  # Se sobrescribe el archivo con las filas modificadas
-                # --- print("Precio del dólar actualizado con éxito en la base de datos y en el CSV.")
-                # Etiqueta que indica el éxito de la operación
-                success_label = ttk.Label(status_window,
-                                          text="Precio del dólar actualizado con éxito en la base de datos y en el CSV.")
-                success_label.pack(padx=20, pady=10)  # Ajuste de la ubicación de la etiqueta en la interfaz
-                status_window.after(2000, status_window.destroy)  # Eliminación de la ventana para liberar memoria
+                    writer_csv = csv.writer(csv_file)
+                    writer_csv.writerows(rows)  # Sobrescribir el archivo con las filas modificadas
+                print("Precio del dólar actualizado con éxito en la base de datos y en el CSV.")
             except FileNotFoundError:  # Si el archivo no ha sido encontrado en la ruta especificada
-                # --- print("Archivo no encontrado.")
-                # Mensaje de error correspondiente
-                messagebox.showerror("Error", "Archivo no encontrado.")
+                print("Archivo no encontrado.")  # Impresión del mensaje de error
         else:  # Si no hay un dato en el campo accedido durante el webscraping
-            # --- print("No se pudo encontrar el tipo de cambio en la página.")
-            # Mensaje de error correspondiente
-            messagebox.showerror("Error", "No se pudo encontrar el tipo de cambio en la página.")
+            print("No se pudo encontrar el tipo de cambio en la página.")  # Impresión del mensaje correspondiente
     else:  # Si no se pudo acceder a la página
-        # --- print(f"Error al acceder a la página: {response.status_code}")
-        # Mensaje de error correspondiente
-        messagebox.showerror("Error", f"Error al acceder a la página: {response.status_code}")
+        print(f"Error al acceder a la página: {response.status_code}")  # Impresión del mensaje correspondiente
 
 
 def sum_of_settled_amounts(cursor):
@@ -93,661 +71,1004 @@ def sum_of_settled_amounts(cursor):
     query = "SELECT SUM(PrecioTotal) FROM Gestion_de_lotes.Lotes WHERE Estatus = 'Comprado'"
     cursor.execute(query)  # Ejecutar la consulta
     result = cursor.fetchone()  # Obtener el resultado de la suma
-
-    # Creación de la ventana para mostrar resultados
-    result_window = tk.Toplevel()
-    # Título de la ventana
-    result_window.title("Suma de Importes Finiquitados")
-
-    # Frame o marco para organizar contenido
-    frame = ttk.Frame(result_window, padding="20")
-    frame.pack(fill=tk.BOTH, expand=True)
-
-    # Mostrar resultado bruto en otra etiqueta
-    # --- print(f"Resultado bruto: {result}")
-    raw_result_label = ttk.Label(frame, text=f"Resultado bruto: {result}")
-    raw_result_label.pack(pady=10)
-
-    # Mostrar resultado formateado
-    formatted_result = f"${result[0]:,.2f}"  # Formateo del resultado bruto
-    # --- print(f"La suma de los importes es: {formatted_result}\n")
-    # Etiqueta para mostrar la suma de los importes
-    formatted_result_label = ttk.Label(frame,
-                                       text=f"La suma de los importes es: {formatted_result}",
-                                       font=("Arial", 12, "bold"))
-    formatted_result_label.pack(pady=10)
-
-    # Botón para cerrar
-    close_button = ttk.Button(frame, text="Cerrar", command=result_window.destroy)
-    close_button.pack(pady=10)
+    print(f"Resultado bruto: {result}")  # Impresión del resultado de la consulta
+    formatted_result = f"${result[0]:,.2f}"  # Formateo del resultado para que muestre el número con dos decimales
+    print(f"La suma de los importes es: {formatted_result}\n")  # Imprimir el resultado
+    print("Presione Enter para continuar...")
+    input()
+    subprocess.call("cls", shell=True)
 
 
 def sum_of_payments_for_lots_to_be_sold(cursor):
-    # Consulta SQL de la suma de los abonos de los lotes en proceso de compra
-    query = "SELECT SUM(CantidadAbonada) FROM Gestion_de_lotes.Abonos"
-    cursor.execute(query)  # Ejecución de la consulta
-    result = cursor.fetchone()  # Obtención del resultado de la suma
-
-    # Crear ventana para mostrar resultados
-    result_window = tk.Toplevel()
-    # Título de la ventana
-    result_window.title("Suma de Abonos")
-
-    # Frame para organizar contenido
-    frame = ttk.Frame(result_window, padding="20")
-    frame.pack(fill=tk.BOTH, expand=True)
-
-    # Mostrar resultado bruto con una etiqueta
-    # --- print(f"Resultado bruto: {result}")
-    raw_result_label = ttk.Label(frame, text=f"Resultado bruto: {result}")
-    raw_result_label.pack(pady=10)
-
-    # Mostrar resultado formateado
-    formatted_result = f"${result[0]:,.2f}"  # Formateo del resultado de la suma
-    # --- print(f"La suma de los abonos es: {formatted_result}")
-    # Etiqueta para poner el resultado formateado
-    formatted_result_label = ttk.Label(frame,
-                                       text=f"La suma de los abonos es: {formatted_result}",
-                                       font=("Arial", 12, "bold"))
-    formatted_result_label.pack(pady=10)
-
-    # Botón para cerrar
-    close_button = ttk.Button(frame, text="Cerrar", command=result_window.destroy)
-    close_button.pack(pady=10)
+    query = "SELECT SUM(CantidadAbonada) FROM Gestion_de_lotes.Abonos"  # Consulta correspondiente
+    cursor.execute(query)  # Ejecutar la consulta
+    result = cursor.fetchone()  # Obtener el resultado de la suma
+    print(f"Resultado bruto: {result}")  # Impresión del resultado de la consulta
+    formatted_result = f"${result[0]:,.2f}"  # Formateo del resultado para que muestre el número con dos decimales
+    print(f"La suma de los abonos es: {formatted_result}")  # Imprimir el resultado
+    print("Presione Enter para continuar...")
+    input()
+    subprocess.call("cls", shell=True)
 
 
 def client_consultation(cursor):
-    client_window = tk.Toplevel()  # Creación de la ventana para la consulta de clientes
-    client_window.title("Consulta de Clientes")  # Título de la ventana
-    client_window.geometry("800x600")  # Tamaño de la ventana
-
-    # Frame principal
-    main_frame = ttk.Frame(client_window, padding="20")
-    main_frame.pack(fill=tk.BOTH, expand=True)
-
-    # Etiqueta para poner el texto "Clientes registrados:"
-    # --- print("Clientes registrados: \n")
-    ttk.Label(main_frame, text="Clientes registrados:", font=("Arial", 12, "bold")).pack(pady=10)
-
-    # Consulta para obtener los ID y los nombres
-    query = "SELECT IdCliente, Nombre FROM Gestion_de_lotes.Clientes"
+    print("Clientes registrados: \n")  # Impresión informativa
+    query = "SELECT IdCliente, Nombre FROM Gestion_de_lotes.Clientes"  # Consulta para imprimir los ID y los nombres
+    # de los clientes registrados
     cursor.execute(query)  # Ejecución de la consulta
     info = cursor.fetchall()  # Obtención de cada uno de los registros de la tabla
-
-    # Crear Treeview para mostrar clientes
-    tree = ttk.Treeview(main_frame, columns=('ID', 'Nombre'), show='headings')
-    tree.heading('ID', text='ID Cliente')
-    tree.heading('Nombre', text='Nombre')
-
-    # Inserción de cada uno de los registros de la consulta al Treeview
-    for row in info:
-        tree.insert('', tk.END, values=row)
-
-    # Ajuste del Treeview
-    tree.pack(pady=20, fill=tk.BOTH, expand=True)
-
-    # Frame para entrada de ID
-    input_frame = ttk.Frame(main_frame)
-    input_frame.pack(pady=20)
-
-    # Generación de la etiqueta "ID del cliente:"
-    ttk.Label(input_frame, text="ID del cliente:").pack(side=tk.LEFT, padx=5)
-    id_entry = ttk.Entry(input_frame)
-    id_entry.pack(side=tk.LEFT, padx=5)
-
-    # Función anidada para mostrar los detalles del cliente que se quiere consultar
-    def show_client_details():
-        try:
-            client_id = id_entry.get()  # Se obtiene el ID del campo de entrada correspondiente
-            if client_id.isnumeric() and int(client_id) < (len(info) + 1):  # Si lo que digitó el usuario es un número
-                # y está en el rango del número disponible de registros en la tabla
+    for row in info:  # Impresión de cada uno de los registros
+        print(row)
+    while True:  # Bucle infinito que se cicla cada vez que haya una entrada errónea del usuario
+        option = input("\nIngrese el ID del cliente cuya información quiera consultar: ")
+        if option.isnumeric():  # Si lo que digitó el usuario es un número
+            if int(option) < (len(info) + 1):  # Si el número introducido está en el rango del número
+                # disponible de registros en la tabla
                 # Consulta auxiliar para imprimir los datos del cliente especificado
-                auxQuery = f"SELECT * FROM Gestion_de_lotes.Clientes WHERE IdCliente = {client_id}"
+                auxQuery = f"SELECT * FROM Gestion_de_lotes.Clientes WHERE IdCliente = {option}"
                 cursor.execute(auxQuery)  # Ejecución de la consulta auxiliar
-                client_info = cursor.fetchall()  # Obtención del resultado
-
-                # Mostrar detalles en una nueva ventana
-                details_window = tk.Toplevel()
-                details_window.title(f"Detalles del Cliente {client_id}")
-
-                # Crear Treeview para mostrar detalles del cliente
-                details_tree = ttk.Treeview(details_window,
-                                            columns=('ID', 'Nombre', 'Domicilio', 'Teléfono'),
-                                            show='headings')
-                details_tree.heading('ID', text='ID')
-                details_tree.heading('Nombre', text='Nombre')
-                details_tree.heading('Domicilio', text='Domicilio')
-                details_tree.heading('Teléfono', text='Teléfono')
-
-                # Bucle para insertar los datos del cliente a la interfaz
-                for info_row in client_info:
-                    details_tree.insert('', tk.END, values=info_row)
-                details_tree.pack(padx=20, pady=20)
+                info = cursor.fetchall()  # Obtención del resultado
+                for row in info:  # Impresión de los datos
+                    print(row)
+                break  # Salida del bucle
             else:  # Si el ID no existe en la tabla
-                # Mensaje de error correspondiente
-                messagebox.showerror("Error", "El cliente no existe, intente de nuevo.")
-        except ValueError:  # Si lo que digitó el usuario dentro del campo de solicitud de ID no ayuda a
-            # identificar un registro
-            # Mensaje de error correspondiente
-            messagebox.showerror("Error", "Opción no válida. Intente de nuevo.")
-    # Botón para ver los detalles del cliente después de haber ingresado su ID
-    ttk.Button(input_frame, text="Consultar", command=show_client_details).pack(side=tk.LEFT, padx=5)
-    # Botón para cerrar la ventana de la consulta de cliente
-    ttk.Button(main_frame, text="Cerrar", command=client_window.destroy).pack(pady=10)
+                print("El cliente no existe, intente de nuevo.")  # Impresión del mensaje de error correspondiente
+        else:  # Si lo que introdujo el usuario no es un número como tal
+            print("Opción no válida. Intente de nuevo.")  # Impresión del mensaje correspondiente
+    print("Presione Enter para continuar...")
+    input()
+    subprocess.call("cls", shell=True)
 
 
 def lot_consultation(cursor):
-    # Crear ventana para consulta de lotes
-    lot_window = tk.Toplevel()
-    lot_window.title("Consulta de Lotes")
-
-    # Frame principal
-    main_frame = ttk.Frame(lot_window, padding="20")
-    main_frame.pack(fill=tk.BOTH, expand=True)
-
-    # Frames para entrada de datos
-    input_frame = ttk.Frame(main_frame)
-    input_frame.pack(pady=20)
-
-    # Diseño del campo para ingresar el número de lote
-    ttk.Label(input_frame, text="Número de lote:").grid(row=0, column=0, padx=5, pady=5)
-    lot_entry = ttk.Entry(input_frame)
-    lot_entry.grid(row=0, column=1, padx=5, pady=5)
-
-    # Diseño del campo para ingresar el número de manzana
-    ttk.Label(input_frame, text="Número de manzana:").grid(row=1, column=0, padx=5, pady=5)
-    block_entry = ttk.Entry(input_frame)
-    block_entry.grid(row=1, column=1, padx=5, pady=5)
-
-    # Diseño del frame para mostrar resultados
-    result_frame = ttk.Frame(main_frame)
-    result_frame.pack(pady=20, fill=tk.BOTH, expand=True)
-
-    # Función anidada para poder llevar a cabo consultas cuantas veces quiera el usuario
-    def show_lot_details():
-        # Limpiar resultados anteriores
-        for widget in result_frame.winfo_children():
-            widget.destroy()
-
-        lot_number = lot_entry.get()  # Se obtiene el número de lote
-        block_number = block_entry.get()  # Se obtiene el número de manzana
-
-        # Consulta para obtener la información correspondiente
-        query = "SELECT * FROM Gestion_de_lotes.Lotes WHERE NoManzana = " + block_number + " and NoLote = " + lot_number
-        cursor.execute(query)  # Ejecución de la consulta
-        info = cursor.fetchall()  # Obtención de los datos del lote
-
-        # Crear Treeview para mostrar detalles
-        columns = ('NoManzana', 'NoLote', 'Direccion', 'MtsCuadrados', 'CostoMetroCuadrado', 'PrecioTotal', 'Estatus')
-        tree = ttk.Treeview(result_frame, columns=columns, show='headings')
-
-        # Configurar encabezados
-        headers = ['No. Manzana', 'No. Lote', 'Dirección', 'Metros²', 'Costo/m²', 'Precio Total', 'Estatus']
-        for col, header in zip(columns, headers):
-            tree.heading(col, text=header)
-            tree.column(col, width=100)  # Ajustar según necesidades
-
-        # Insertar datos
-        for row in info:  # Inserción de los datos del lote al Treeview
-            tree.insert('', tk.END, values=row)
-        tree.pack(pady=10, fill=tk.BOTH, expand=True)
-
-    # Botones
-    button_frame = ttk.Frame(main_frame)
-    button_frame.pack(pady=10)
-    # Botón para ver los detalles del lote después de haber ingresado los datos necesarios
-    ttk.Button(button_frame, text="Consultar", command=show_lot_details).pack(side=tk.LEFT, padx=5)
-    # Botón para cerrar la ventana de la consulta de lotes
-    ttk.Button(button_frame, text="Cerrar", command=lot_window.destroy).pack(side=tk.LEFT, padx=5)
+    lot_number = input("Introduzca el número de lote: ")  # Preguntar por el número de lote
+    block_number = input("Ahora introduzca el número de la manzana en la que se ubica: ")  # Manzana del lote
+    # Mostrar la información correspondiente
+    query = "SELECT * FROM Gestion_de_lotes.Lotes WHERE NoManzana = " + block_number + " and NoLote = " + lot_number
+    cursor.execute(query)  # Ejecución de la consulta
+    info = cursor.fetchall()  # Obtención de los datos del lote
+    for row in info:  # Impresión de los datos del lote
+        print(row)
+    print("Presione Enter para continuar...")
+    input()
+    subprocess.call("cls", shell=True)
 
 
+# Esta función está nada más para hacer ajustes de información en las bases de datos por si se requiere
 def info_adjustment(cursor, connection):
-    # Crear ventana para ajuste de información
-    adjust_window = tk.Toplevel()
-    adjust_window.title("Ajuste de Información")
-
-    # Frame principal
-    main_frame = ttk.Frame(adjust_window, padding="20")
-    main_frame.pack(fill=tk.BOTH, expand=True)
-
-    # Función anidada para hacer la operación de ajuste cuantas veces se quiera
-    def load_and_display_data():
-        # Ruta del archivo CSV
-        df = pd.read_csv(r"C:\Users\SERGIUS\Documents\Abraham\Proyecto modular\Archivos CSV\Lotes.csv")
-
-        # Mostrar datos en Treeview
-        tree = ttk.Treeview(main_frame, columns=list(df.columns), show='headings')
-
-        # Configurar encabezados
-        for col in df.columns:
-            tree.heading(col, text=col)
-            tree.column(col, width=100)
-
-        # Insertar datos
-        for index, row in df.iterrows():
-            tree.insert('', tk.END, values=list(row))
-
-            # Consulta para insertar los datos en la tabla correspondiente
-            sql = """INSERT INTO Gestion_de_lotes.Lotes (NoManzana, NoLote, Direccion, MtsCuadrados, CostoMetroCuadrado,
-            PrecioTotal, Estatus) VALUES (%s, %s, %s, %s, %s, %s, %s)"""
-            cursor.execute(sql, tuple(row))  # Ejecución de la consulta
-            connection.commit()  # Guardado de los cambios en la base de datos
-
-        tree.pack(pady=20, fill=tk.BOTH, expand=True)
-        # Mensaje de éxito de la operación
-        messagebox.showinfo("Éxito", "Datos cargados y actualizados correctamente")
-
-    # Botón para proceder con la operación
-    ttk.Button(main_frame, text="Cargar Datos", command=load_and_display_data).pack(pady=10)
-    # Botón para salir del proceso
-    ttk.Button(main_frame, text="Cerrar", command=adjust_window.destroy).pack(pady=10)
+    # Ruta del archivo correspondiente
+    df = pd.read_csv(r"C:\Users\SERGIUS\Documents\Abraham\Proyecto modular\Archivos CSV\Lotes.csv")
+    print(df)  # Impresión de los datos en formato bruto para confirmar que los datos se leyeron
+    for _, row in df.iterrows():  # Bucle para recorrer cada registro
+        # Consulta para insertar los datos en la tabla correspondiente
+        sql = """INSERT INTO Gestion_de_lotes.Lotes (NoManzana, NoLote, Direccion, MtsCuadrados, CostoMetroCuadrado,
+        PrecioTotal, Estatus) VALUES (%s, %s, %s, %s, %s, %s, %s)"""
+        cursor.execute(sql, tuple(row))  # Ejecución de la consulta
+        connection.commit()  # Guardado de los cambios en la base de datos
+    subprocess.call("cls", shell=True)
 
 
+# En este método se eliminó el parámetro del sistema experto por motivos de diseño
 def lot_purchase(cursor):
-    # Crear ventana principal para compra de lotes
-    purchase_window = tk.Toplevel()
-    purchase_window.title("Compra de Lotes")
-    purchase_window.geometry("1000x800")
-
-    # Frame principal
-    main_frame = ttk.Frame(purchase_window, padding="20")
-    main_frame.pack(fill=tk.BOTH, expand=True)
-
-    ttk.Label(main_frame, text="Lista de lotes disponibles:", font=("Arial", 12, "bold")).pack(pady=10)
-
-    # Mostrar lotes disponibles
+    print("Lista de lotes disponibles:\n")
+    # Consulta para obtener la información de los lotes disponibles
     query = "SELECT * FROM Gestion_de_lotes.Lotes WHERE Estatus = 'Disponible'"
-    cursor.execute(query)
-    info = cursor.fetchall()
-    columns = cursor.column_names
+    cursor.execute(query)  # Ejecución de la consulta
+    info = cursor.fetchall()  # Obtención de la información
+    columns = cursor.column_names  # Obtención de los nombres de las columnas
+    column_width = []  # Generación de un arreglo vacío para almacenar el ancho de columna
 
-    # Crear Treeview para mostrar lotes
-    tree = ttk.Treeview(main_frame, columns=columns, show='headings')
+    for index, column in enumerate(columns):  # Bucle que recorre cada una de las columnas
+        # Obtención de la anchura de cada una de las columnas
+        max_width = max(len(str(fila[index])) for fila in info) if info else 0
+        column_width.append(max(max_width, len(column)))  # Incluir el tamaño obtenido al arreglo
 
-    # Configurar columnas
-    for col in columns:
-        tree.heading(col, text=col)
-        tree.column(col, width=100)
+    for index, column in enumerate(columns):  # Segundo bucle para recorrer las columnas
+        print(column.ljust(column_width[index]), end="\t")  # Impresión de las columnas ajustando su tamaño
+    print()
 
-    # Insertar datos
-    for row in info:
-        tree.insert('', tk.END, values=row)
+    for row in info:  # Bucle para recorrer toda la información recolectada por la consulta previa
+        for index, data in enumerate(row):  # Bucle anidado para la impresión de los registros
+            print(str(data).ljust(column_width[index]), end="\t")  # Impresión de cada registro con el ajuste de tamaño
+        print()
+    print("\n¿Cuál lote se quiere comprar?")
 
-    tree.pack(pady=20, fill=tk.BOTH, expand=True)
-
-    # Frame para entrada de datos
-    input_frame = ttk.Frame(main_frame)
-    input_frame.pack(pady=20)
-
-    ttk.Label(input_frame, text="Número de manzana:").grid(row=0, column=0, padx=5, pady=5)
-    block_entry = ttk.Entry(input_frame)
-    block_entry.grid(row=0, column=1, padx=5, pady=5)
-
-    ttk.Label(input_frame, text="Número de lote:").grid(row=1, column=0, padx=5, pady=5)
-    lot_entry = ttk.Entry(input_frame)
-    lot_entry.grid(row=1, column=1, padx=5, pady=5)
-
-    def process_purchase():
-        no_manzana = int(block_entry.get())
-        no_lote = int(lot_entry.get())
-
-        # Obtener detalles del lote
-        query = (f"SELECT MtsCuadrados, CostoMetroCuadrado, PrecioTotal FROM Gestion_de_lotes.Lotes WHERE NoManzana = "
-                 f"{no_manzana} AND NoLote = {no_lote}")
-        cursor.execute(query)
-        lot_details = cursor.fetchone()
-
-        if lot_details:
-            # Crear ventana para precio por metro cuadrado
-            price_window = tk.Toplevel()
-            price_window.title("Precio por Metro Cuadrado")
-
-            ttk.Label(price_window, text="Precio por metro cuadrado:").pack(pady=10)
-            price_entry = ttk.Entry(price_window)
-            price_entry.pack(pady=10)
-
-            def process_price():
-                try:
-                    price_per_square_meter = float(price_entry.get())
-                    price_window.destroy()
-
-                    # Mostrar clientes registrados
-                    aux_query = "SELECT Nombre FROM Gestion_de_lotes.Clientes"
-                    cursor.execute(aux_query)
-                    customer_names = [name[0] for name in cursor.fetchall()]
-
-                    # Ventana para selección de cliente
-                    client_window = tk.Toplevel()
-                    client_window.title("Selección de Cliente")
-
-                    ttk.Label(client_window, text="Clientes registrados:").pack(pady=10)
-                    client_listbox = tk.Listbox(client_window, width=50)
-                    for name in customer_names:
-                        client_listbox.insert(tk.END, name)
-                    client_listbox.pack(pady=10)
-
-                    ttk.Label(client_window, text="Nombre del cliente:").pack(pady=5)
-                    client_entry = ttk.Entry(client_window)
-                    client_entry.pack(pady=5)
-
-                    def process_client():
-                        customer_name = client_entry.get()
-                        if customer_name not in customer_names:
-                            # Ventana para nuevo cliente
-                            new_client_window = tk.Toplevel()
-                            new_client_window.title("Nuevo Cliente")
-
-                            ttk.Label(new_client_window, text="Domicilio:").pack(pady=5)
-                            address_entry = ttk.Entry(new_client_window)
-                            address_entry.pack(pady=5)
-
-                            ttk.Label(new_client_window, text="Teléfono:").pack(pady=5)
-                            phone_entry = ttk.Entry(new_client_window)
-                            phone_entry.pack(pady=5)
-
-                            def save_new_client():
-                                address = address_entry.get()
-                                phone_number = phone_entry.get()
-
-                                client_insert_query = (
-                                    f"INSERT INTO Gestion_de_lotes.Clientes (Nombre, Domicilio, Telefono) "
-                                    f"VALUES (\'{customer_name}\', \'{address}\', \'{phone_number}\')")
-                                cursor.execute(client_insert_query)
-                                connection.commit()
-
-                                id_client_query = f"SELECT IdCliente FROM Gestion_de_lotes.Clientes WHERE Nombre = \'{customer_name}\'"
-                                cursor.execute(id_client_query)
-                                client_id = cursor.fetchone()[0]
-
-                                show_payment_options(no_lote, no_manzana, price_per_square_meter, client_id)
-                                new_client_window.destroy()
-                                client_window.destroy()
-
-                            ttk.Button(new_client_window, text="Guardar", command=save_new_client).pack(pady=10)
-                        else:
-                            id_client_query = f"SELECT IdCliente FROM Gestion_de_lotes.Clientes WHERE Nombre = \'{customer_name}\'"
-                            cursor.execute(id_client_query)
-                            client_id = cursor.fetchone()[0]
-
-                            show_payment_options(no_lote, no_manzana, price_per_square_meter, client_id)
-                            client_window.destroy()
-
-                    ttk.Button(client_window, text="Continuar", command=process_client).pack(pady=10)
-
-                except ValueError:
-                    messagebox.showerror("Error", "Ingrese un número válido para el precio.")
-
-            ttk.Button(price_window, text="Continuar", command=process_price).pack(pady=10)
+    # Después de desplegar los lotes se piden los datos correspondientes
+    no_manzana = int(input("Introduzca el número de manzana: "))
+    no_lote = int(input("Introduzca el número de lote: "))
+    # while True:
+    #     client = input("Ingrese el nombre del comprador: ")
+    #     proceed = input(f"¿Seguro que este es el nombre del comprador?: {client}\nSí <1>     No <Cualquier tecla>")
+    #     if proceed == "1":
+    #         break
+    # Obtención de los detalles del lote de la base de datos mediante la consulta correspondiente
+    query = (f"SELECT MtsCuadrados, CostoMetroCuadrado, PrecioTotal FROM Gestion_de_lotes.Lotes WHERE NoManzana = "
+             f"{no_manzana} AND NoLote = {no_lote}")
+    cursor.execute(query)  # Ejecución de la consulta
+    lot_details = cursor.fetchone()  # Se usa fetchone() ya que se busca un lote en específico
+    ################################################
+    # if lot_details:  # Si hay detalles en el registro especificado
+    #     mts_cuadrados, costo_metro_cuadrado, precio_total = lot_details  # Inicialización de las variables restantes
+    #     # para el entrenamiento
+    #     recommendation = rule_system.recommend_action(no_manzana, no_lote, mts_cuadrados, costo_metro_cuadrado,
+    #                                                   precio_total)  # Instancia del sistema experto con cada uno de los
+    #     # datos del registro
+    #     print("\nRecomendación del sistema experto:")
+    #     print(recommendation)  # Dependiendo del precio del dólar se da la recomendación correspondiente
+    # else:
+    #     # Si el lote que se quiere analizar no se encuentra en la base de datos mostrar el siguiente mensaje
+    #     print("Lote no encontrado.")
+    ################################################
+    proceeding = input("¿Quiere proceder? Sí <1>    No <Cualquier tecla>: ")
+    if proceeding == "1":  # Si se quiere proceder después de saber la recomendación
+        while True:  # Bucle infinito que repite la solicitud del precio por metro cuadrado en caso de que se ingrese
+            # un dato inválido
+            try:
+                price_per_square_meter = float(input("¿Cuál es el precio por metro cuadrado que se pactó?: "))
+                break
+            except ValueError:
+                print("Ingrese un número válido.")
+        aux_query = "SELECT Nombre FROM Gestion_de_lotes.Clientes"  # Consulta auxiliar para obtener los nombres
+        # registrados
+        cursor.execute(aux_query)  # Ejecución de la consulta auxiliar
+        customer_names = list(cursor.fetchall())  # Conversión del conjunto de nombres a una lista de tuplas
+        customer_names_formatted = [element[0] for element in customer_names]  # Conversión de la tupla de nombres
+        # a una lista
+        print("Estos son los clientes registrados: \n")
+        print(customer_names_formatted)
+        customer_name = input("Ingrese el nombre del cliente: ")  # Ingreso del nombre del cliente
+        if customer_name not in customer_names_formatted:  # Si el nombre que se ingresó no está registrado
+            print("El cliente no está registrado. ")  # Mensaje de advertencia de que el cliente no está
+            # en la base de datos
+            address = input("Ingrese su domicilio: ")  # Ingreso del domicilio
+            phone_number = input("Ingrese su número de teléfono: ")  # Ingreso del número de teléfono
+            # Consulta para insertar los datos del nuevo cliente
+            client_insert_query = (f"INSERT INTO Gestion_de_lotes.Clientes (Nombre, Domicilio, Telefono) VALUES "
+                                   f"(\'{customer_name}\', \'{address}\', \'{phone_number}\')")
+            cursor.execute(client_insert_query)  # Ejecución de la consulta
+            conexion.commit()  # Guardado de los cambios
+            # Consulta para conseguir el ID del cliente que se registró
+            id_client_query = f"SELECT IdCliente FROM Gestion_de_lotes.Clientes WHERE Nombre = \'{customer_name}\'"
+            cursor.execute(id_client_query)  # Ejecución de la consulta
+            client_id = cursor.fetchone()[0]  # Guardado del ID mediante el uso de un índice
         else:
-            messagebox.showerror("Error", "Lote no encontrado.")
-
-    def show_payment_options(no_lote, no_manzana, price_per_square_meter, client_id):
-        payment_window = tk.Toplevel()
-        payment_window.title("Opciones de Pago")
-
-        ttk.Label(payment_window, text="Seleccione forma de pago:", font=("Arial", 12, "bold")).pack(pady=20)
-
-        payment_method = PaymentOptions(connection)
-
-        def process_payment(option):
-            lot_data_query = f"SELECT MtsCuadrados FROM gestion_de_lotes.Lotes WHERE NoManzana = {no_manzana} AND NoLote = {no_lote}"
-            cursor.execute(lot_data_query)
-            square_meters = cursor.fetchone()[0]
-            lot_price = price_per_square_meter * float(square_meters)
-
-            if option == 1:
-                payment_method.cash_payment(cursor, no_lote, no_manzana, price_per_square_meter, lot_price, client_id)
-            elif option == 2:
-                payment_method.payment_by_installments(cursor, no_lote, no_manzana, price_per_square_meter, lot_price,
-                                                       client_id)
-            elif option == 3:
-                payment_method.payment_in_kind(cursor, no_lote, no_manzana, price_per_square_meter, lot_price,
-                                               client_id)
-
-            payment_window.destroy()
-
-        ttk.Button(payment_window, text="De contado",
-                   command=lambda: process_payment(1)).pack(pady=10)
-        ttk.Button(payment_window, text="Anticipo, parcialidades",
-                   command=lambda: process_payment(2)).pack(pady=10)
-        ttk.Button(payment_window, text="En especie",
-                   command=lambda: process_payment(3)).pack(pady=10)
-
-    ttk.Button(input_frame, text="Proceder con la compra", command=process_purchase).grid(row=2, column=0, columnspan=2,
-                                                                                          pady=20)
-    ttk.Button(main_frame, text="Cerrar", command=purchase_window.destroy).pack(pady=10)
-
-
-# [continúa en la siguiente parte debido a limitaciones de longitud...]
-# [partes anteriores...]
+            # Consulta para conseguir el ID del cliente en la base de datos
+            id_client_query = f"SELECT IdCliente FROM Gestion_de_lotes.Clientes WHERE Nombre = \'{customer_name}\'"
+            cursor.execute(id_client_query)  # Ejecución de la consulta
+            client_id = cursor.fetchone()[0]  # Guardado del ID mediante el uso de un índice
+        # Consulta para obtener los metros cuadrados del lote a comprar
+        lot_data_query = f"SELECT MtsCuadrados FROM gestion_de_lotes.Lotes WHERE NoManzana = {no_manzana} AND NoLote = {no_lote}"
+        cursor.execute(lot_data_query)  # Ejecución de la consulta
+        square_meters = cursor.fetchone()[0]  # Obtención del dato usando un índice
+        lot_price = price_per_square_meter * float(square_meters)  # Multiplicación del costo por metro cuadrado por los metros
+        # cuadrados del lote para obtener el precio total
+        print(f"El precio del lote es: ${lot_price} pesos.")  # Importe total del lote
+        payment_method = PaymentOptions(conexion)  # Se crea un objeto que contiene los modos de pago
+        while True:  # Repetir la impresión del submenú hasta que el usuario decida salir
+            try:
+                print("Posibles formas de pago:\n")
+                print("De contado              <1>")
+                print("Anticipo, parcialidades <2>")
+                print("En especie              <3>")
+                print("Salir     <Cualquier tecla>\n")
+                choice = input("Seleccione uno: ")  # Decisión del usuario
+                if choice == "1":  # Si se va a pagar de contado se invoca el método correspondiente de la clase
+                    payment_method.cash_payment(cursor, no_lote, no_manzana, price_per_square_meter, lot_price, client_id)
+                    break
+                elif choice == "2":  # Si se va a pagar por abonos se invoca el método correspondiente de la clase
+                    payment_method.payment_by_installments(cursor, no_lote, no_manzana, price_per_square_meter, lot_price, client_id)
+                    break
+                elif choice == "3":  # Si se va a pagar en especie se invoca el método correspondiente de la clase
+                    payment_method.payment_in_kind(cursor, no_lote, no_manzana, price_per_square_meter, lot_price, client_id)
+                    break
+                else:  # Si el usuario quiere salir el bucle se detendrá y regresará al menú principal
+                    break
+            except ValueError:
+                print("Ingrese una opción válida.")
+    # # Imprimir los nombres de las columnas
+    # print("\t".join(columnas))  # Usamos '\t' para separar por tabulación
+    # # Imprimir las filas de la tabla sin paréntesis ni comas
+    # for fila in info:
+    #     fila_sin_comas = "\t".join(map(str, fila))  # Convertimos a cadena y separamos por tabulación
+    #     print(fila_sin_comas)
+    print("Presione Enter para continuar...")
+    input()
+    subprocess.call("cls", shell=True)
 
 
 def balance_consultation(cursor):
-    # Crear ventana para consulta de saldo
-    balance_window = tk.Toplevel()
-    balance_window.title("Consulta de Saldo")
-
-    # Frame principal
-    main_frame = ttk.Frame(balance_window, padding="20")
-    main_frame.pack(fill=tk.BOTH, expand=True)
-
-    # Frame para entrada de datos
-    input_frame = ttk.Frame(main_frame)
-    input_frame.pack(pady=20)
-
-    ttk.Label(input_frame, text="Número de lote:").grid(row=0, column=0, padx=5, pady=5)
-    lot_entry = ttk.Entry(input_frame)
-    lot_entry.grid(row=0, column=1, padx=5, pady=5)
-
-    ttk.Label(input_frame, text="Número de manzana:").grid(row=1, column=0, padx=5, pady=5)
-    block_entry = ttk.Entry(input_frame)
-    block_entry.grid(row=1, column=1, padx=5, pady=5)
-
-    # Frame para mostrar resultado
-    result_frame = ttk.Frame(main_frame)
-    result_frame.pack(pady=20)
-
-    def show_balance():
-        lot_number = lot_entry.get()
-        block_number = block_entry.get()
-
-        query = ("SELECT Saldo FROM Gestion_de_lotes.Abonos WHERE NoManzana = " + block_number + " and NoLote = " +
-                 lot_number + " and NoAbono = (SELECT MAX(NoAbono) FROM Gestion_de_lotes.Abonos WHERE NoManzana = " +
-                 block_number + " and NoLote = " + lot_number + ")")
-
-        try:
-            cursor.execute(query)
-            balance = cursor.fetchone()
-
-            # Limpiar resultado anterior
-            for widget in result_frame.winfo_children():
-                widget.destroy()
-
-            if balance:
-                result_text = f"El saldo del lote número {lot_number} de la manzana {block_number} es: ${balance[0]:,.2f}"
-                ttk.Label(result_frame, text=result_text, font=("Arial", 12)).pack(pady=10)
-            else:
-                messagebox.showwarning("Advertencia", "No se encontró información para este lote")
-        except mysql.connector.Error as err:
-            messagebox.showerror("Error", f"Error en la consulta: {err}")
-
-    # Botones
-    button_frame = ttk.Frame(main_frame)
-    button_frame.pack(pady=10)
-
-    ttk.Button(button_frame, text="Consultar", command=show_balance).pack(side=tk.LEFT, padx=5)
-    ttk.Button(button_frame, text="Cerrar", command=balance_window.destroy).pack(side=tk.LEFT, padx=5)
+    print("---------Consulta de saldo--------")
+    # Solicitud de los datos necesarios
+    lot_number = input("Introduzca el número de lote: ")
+    block_number = input("Ahora introduzca el número de la manzana en la que se ubica: ")
+    # Consulta correspondiente
+    query = ("SELECT Saldo FROM Gestion_de_lotes.Abonos WHERE NoManzana = " + block_number + " and NoLote = " +
+             lot_number + " and NoAbono = (SELECT MAX(NoAbono) FROM Gestion_de_lotes.Abonos WHERE NoManzana = " +
+             block_number + " and NoLote = " + lot_number + ")")  # Dentro de esta consulta hay una sub-consulta
+    # que obtiene el saldo actual del lote en proceso de compra
+    cursor.execute(query)  # Ejecución de la consulta
+    balance = cursor.fetchone()  # Se obtiene el dato, es decir, el monto faltante a pagar para liquidar la compra y
+    # luego se imprime
+    print("El saldo del lote número " + lot_number + " de la manzana " + block_number + " es: $" + balance[0])
+    print("Presione Enter para continuar...")
+    input()
+    subprocess.call("cls", shell=True)
 
 
 def recording_installment(cursor):
-    # Crear ventana para registro de abonos
-    installment_window = tk.Toplevel()
-    installment_window.title("Registro de Abonos")
-    installment_window.geometry("1000x800")
-
-    # Frame principal
-    main_frame = ttk.Frame(installment_window, padding="20")
-    main_frame.pack(fill=tk.BOTH, expand=True)
-
-    ttk.Label(main_frame, text="Lotes en proceso de compra", font=("Arial", 12, "bold")).pack(pady=10)
-
-    # Mostrar lotes en proceso de compra
+    print("Lotes en proceso de compra")
+    payment_method = PaymentOptions(conexion)
     query = "SELECT * FROM Gestion_de_lotes.Lotes WHERE Estatus = 'En proceso de compra'"
-    cursor.execute(query)
-    info = cursor.fetchall()
-    columns = cursor.column_names
+    cursor.execute(query)  # Ejecución de la consulta
+    info = cursor.fetchall()  # Obtención de la información
+    columns = cursor.column_names  # Obtención de los nombres de las columnas
+    column_width = []  # Generación de un arreglo vacío para almacenar el ancho de columna
 
-    # Crear Treeview para mostrar lotes
-    tree = ttk.Treeview(main_frame, columns=columns, show='headings')
+    for index, column in enumerate(columns):  # Bucle que recorre cada una de las columnas
+        # Obtención de la anchura de cada una de las columnas
+        max_width = max(len(str(fila[index])) for fila in info) if info else 0
+        column_width.append(max(max_width, len(column)))  # Incluir el tamaño obtenido al arreglo
 
-    # Configurar columnas
-    for col in columns:
-        tree.heading(col, text=col)
-        tree.column(col, width=100)
+    for index, column in enumerate(columns):  # Segundo bucle para recorrer las columnas
+        print(column.ljust(column_width[index]), end="\t")  # Impresión de las columnas ajustando su tamaño
+    print()
 
-    # Insertar datos
-    for row in info:
-        tree.insert('', tk.END, values=row)
+    for row in info:  # Bucle para recorrer toda la información recolectada por la consulta previa
+        for index, data in enumerate(row):  # Bucle anidado para la impresión de los registros
+            print(str(data).ljust(column_width[index]), end="\t")  # Impresión de cada registro con el ajuste de tamaño
+        print()
+    print("\n¿Cuál lote se quiere abonar?")
+    # Después de desplegar los lotes se piden los datos correspondientes
+    no_manzana = int(input("Introduzca el número de manzana: "))
+    no_lote = int(input("Introduzca el número de lote: "))
+    # Consulta para obtener el costo por metro cuadrado y el importe total de lote
+    lot_query = f"SELECT * FROM Gestion_de_lotes.Lotes WHERE NoManzana = {no_manzana} AND NoLote = {no_lote}"
+    cursor.execute(lot_query)  # Ejecución de la consulta
+    lot_data = cursor.fetchall()[0]  # Obtención de la tupla de datos.
+    price_per_square_meter = lot_data[4]  # Obtención del precio por metro cuadrado
+    lot_price = lot_data[5]  # Obtención del precio total
+    # Consulta para obtener el ID del cliente
+    client_query = (f"SELECT IdComprador FROM Gestion_de_lotes.Abonos WHERE NoManzana = {no_manzana} "
+                    f"AND NoLote = {no_lote}")
+    cursor.execute(client_query)  # Ejecución de la consulta
+    client_id = cursor.fetchone()[0]  # Obtención del ID del cliente
+    # Llamada a la función correspondiente para registrar el abono
+    payment_method.payment_by_installments(cursor, no_lote, no_manzana, price_per_square_meter, lot_price, client_id)
+#############################################################################################################
+#############################################################################################################
 
-    tree.pack(pady=20, fill=tk.BOTH, expand=True)
+########## Funciones nuevas ##########
 
-    # Frame para entrada de datos
-    input_frame = ttk.Frame(main_frame)
-    input_frame.pack(pady=20)
+# Funciones complementarias
 
-    ttk.Label(input_frame, text="Número de manzana:").grid(row=0, column=0, padx=5, pady=5)
-    block_entry = ttk.Entry(input_frame)
-    block_entry.grid(row=0, column=1, padx=5, pady=5)
+def registrar_cliente(cursor):
+    print("Registro de nuevo cliente")
 
-    ttk.Label(input_frame, text="Número de lote:").grid(row=1, column=0, padx=5, pady=5)
-    lot_entry = ttk.Entry(input_frame)
-    lot_entry.grid(row=1, column=1, padx=5, pady=5)
+    nombre = input("Nombre (puede dejarse en blanco): ").strip()
+    domicilio = input("Domicilio (puede dejarse en blanco): ").strip()
+    tel_fijo = input("Teléfono fijo (puede dejarse en blanco): ").strip()
+    tel_cel = input("Teléfono celular (puede dejarse en blanco): ").strip()
 
-    def process_installment():
+    # Inserta los datos en la tabla, permitiendo valores NULL
+    query = """
+            INSERT INTO Gestion_de_lotes.Clientes (nombre, domicilio, telefono, celular)
+            VALUES (%s, %s, %s, %s) \
+            """
+    cursor.execute(query, (nombre, domicilio, tel_fijo, tel_cel))
+    conexion.commit()
+    # Obtener el ID del nuevo cliente
+    nuevo_id = cursor.lastrowid
+    print(f"Cliente registrado con ID: {nuevo_id}")
+
+def mostrar_datos_cliente(cursor):
+    while True:
+        # Obtener y mostrar lista de clientes registrados
+        cursor.execute("SELECT id, nombre FROM gestion_de_lotes.Clientes")
+        clientes = cursor.fetchall()
+        # Si no hay clientes en la tabla, mostrar mensaje correspondiente
+        if not clientes:
+            print("No hay clientes registrados.")
+            return
+        # Lista de todos los clientes disponibles
+        print("\nClientes disponibles:")
+        for cliente in clientes:
+            print(f"ID: {cliente[0]} - Nombre: {cliente[1]}")
+        # Si el valor ingresado por el usuario no está dentro del rango de la lista o es un carácter inválido
         try:
-            no_manzana = int(block_entry.get())
-            no_lote = int(lot_entry.get())
-
-            # Obtener datos del lote
-            lot_query = f"SELECT * FROM Gestion_de_lotes.Lotes WHERE NoManzana = {no_manzana} AND NoLote = {no_lote}"
-            cursor.execute(lot_query)
-            lot_data = cursor.fetchall()
-
-            if lot_data:
-                lot_data = lot_data[0]
-                price_per_square_meter = lot_data[4]
-                lot_price = lot_data[5]
-
-                # Obtener ID del cliente
-                client_query = (f"SELECT IdComprador FROM Gestion_de_lotes.Abonos WHERE NoManzana = {no_manzana} "
-                                f"AND NoLote = {no_lote}")
-                cursor.execute(client_query)
-                client_id = cursor.fetchone()
-
-                if client_id:
-                    client_id = client_id[0]
-                    payment_method = PaymentOptions(connection)
-                    payment_method.payment_by_installments(cursor, no_lote, no_manzana, price_per_square_meter,
-                                                           lot_price, client_id)
-                else:
-                    messagebox.showerror("Error", "No se encontró información del comprador")
-            else:
-                messagebox.showerror("Error", "Lote no encontrado")
-
+            id_elegido = int(input("\nIngresa el ID del cliente que deseas consultar: "))
         except ValueError:
-            messagebox.showerror("Error", "Por favor ingrese números válidos")
-        except mysql.connector.Error as err:
-            messagebox.showerror("Error", f"Error en la base de datos: {err}")
+            print("Entrada inválida. Debes ingresar un número.")
+            continue
 
-    ttk.Button(input_frame, text="Registrar Abono",
-               command=process_installment).grid(row=2, column=0, columnspan=2, pady=20)
-    ttk.Button(main_frame, text="Cerrar", command=installment_window.destroy).pack(pady=10)
+        # Buscar cliente con el ID ingresado
+        cursor.execute("SELECT * FROM gestion_de_lotes.Clientes WHERE id = %s", (id_elegido,))
+        resultado = cursor.fetchone()
+
+        if resultado: # Si hay un registro se despliega la información correspondiente
+            print("\nDatos del cliente:")
+            columnas = [desc[0] for desc in cursor.description]
+            for col, val in zip(columnas, resultado):
+                print(f"{col}: {val}")
+            break  # Salir del bucle si encontró el cliente
+        else:
+            print("No se encontró ningún cliente con ese ID. Intenta de nuevo.\n")
+
+def modificar_cliente(cursor):
+    # Mostrar todos los clientes
+    cursor.execute("SELECT id, nombre, domicilio, telefono, celular FROM gestion_de_lotes.Clientes")
+    clientes = cursor.fetchall()
+    print("Lista de clientes:")
+    for cliente in clientes:
+        print(f"ID: {cliente[0]}\n Nombre: {cliente[1]}\n Domicilio: {cliente[2]}\n Tel. fijo: {cliente[3]}\n Celular: {cliente[4]}\n")
+
+    try:
+        id_seleccionado = int(input("\nIngrese el ID del cliente que desea modificar: "))
+        cursor.execute("SELECT nombre, domicilio, telefono, celular FROM gestion_de_lotes.Clientes WHERE id = %s", (id_seleccionado,))
+        cliente = cursor.fetchone()
+
+        if cliente:
+            print("\nDeje en blanco si no desea cambiar un campo.")
+
+            nuevo_nombre = input(f"Nombre [{cliente[0]}]: ") or cliente[0]
+            nuevo_domicilio = input(f"Domicilio [{cliente[1]}]: ") or cliente[1]
+            nuevo_fijo = input(f"Teléfono fijo [{cliente[2]}]: ") or cliente[2]
+            nuevo_celular = input(f"Celular [{cliente[3]}]: ") or cliente[3]
+
+            cursor.execute("""
+                UPDATE gestion_de_lotes.Clientes
+                SET nombre = %s, domicilio = %s, telefono = %s, celular = %s
+                WHERE id = %s
+            """, (nuevo_nombre, nuevo_domicilio, nuevo_fijo, nuevo_celular, id_seleccionado))
+
+            conexion.commit()
+            print("\nCliente actualizado correctamente.")
+        else:
+            print("No se encontró un cliente con ese ID.")
+
+    except ValueError:
+        print("Entrada inválida. Debe ingresar un número entero.")
 
 
-def main_menu(cursor):
-    # Crear ventana principal
-    root = ThemedTk(theme="arc")  # Usando un tema moderno
-    root.title("Sistema de Gestión de Lotes")
-    root.geometry("800x600")
+def mostrar_todos_los_datos_de_lotes_vendidos(cursor):
+    print("LISTA DE TODOS LOS LOTES VENDIDOS: ")
+    cursor.execute("select "
+                   "b.nombre, "
+                   "a.id_lote, "
+                   "a.no_lote, "
+                   "a.no_manzana,"
+                   "a.col_norte,"
+                   "a.col_sur,"
+                   "a.col_oriente,"
+                   "a.col_poniente,"
+                   "a.mts_cuadrados,"
+                   "a.costo_por_metro_cuadrado,"
+                   "a.precio_total,"
+                   "a.estatus,"
+                   "a.fecha_contrato,"
+                   "a.fecha_pago_final,"
+                   "a.restante,"
+                   "a.tipo_pago,"
+                   "a.comentarios_lotes from gestion_de_lotes.lotes a join gestion_de_lotes.Clientes b "
+                   "on a.id_comprador = b.id where a.estatus = 'V'")
+    datos_lotes_vendidos = cursor.fetchall()
+    if not datos_lotes_vendidos:
+        print("No hay lotes vendidos.")
+        return
+    encabezado_datos_lotes_vendidos = [
+        "Nombre comprador", "ID lote", "No. lote", "No. manzana", "Colindancia norte", "Colindancia sur",
+        "Colindancia oriente", "Colindancia poniente", "Metros cuadrados", "Costo por metro cuadrado", "Importe total",
+        "Estatus", "Fecha de contrato", "Fecha pago final", "Restante", "Tipo de pago", "Comentarios"
+    ]
+    anchos = [50, 8, 8, 16, 50, 50, 50, 50, 18, 28, 15, 7, 18, 17, 8, 30, 300]
+    # Imprimir encabezado
+    for i, campo in enumerate(encabezado_datos_lotes_vendidos):
+        print(campo.ljust(anchos[i]), end=' | ')
+    print("\n" + "-" * (sum(anchos) + len(anchos) * 3))
 
-    # Frame principal
-    main_frame = ttk.Frame(root, padding="20")
-    main_frame.pack(fill=tk.BOTH, expand=True)
+    for lotes in datos_lotes_vendidos:
+        fila = [
+            str(lotes[0]), str(lotes[1]), str(lotes[2]), str(lotes[3]), str(lotes[4]),
+            str(lotes[5]), str(lotes[6]), str(lotes[7]), str(lotes[8]), str(lotes[9]),
+            str(lotes[10]), str(lotes[11]), str(lotes[12]), str(lotes[13]), str(lotes[14]),
+            str(lotes[15]), str(lotes[16])
+        ]
+        for i, celda in enumerate(fila):
+            print(celda.ljust(anchos[i]), end=' | ')
+        print()
+    input("\nPresiona Enter para continuar...")
 
-    # Título
-    title_label = ttk.Label(main_frame, text="Sistema de Gestión de Lotes",
-                            font=("Arial", 16, "bold"))
-    title_label.pack(pady=20)
+def mostrar_todos_los_datos_de_lotes_proceso_compra(cursor):
+    print("LISTA DE TODOS LOS LOTES EN PROCESO DE COMPRA: ")
+    cursor.execute("select "
+                   "b.nombre, "
+                   "a.id_lote, "
+                   "a.no_lote, "
+                   "a.no_manzana,"
+                   "a.col_norte,"
+                   "a.col_sur,"
+                   "a.col_oriente,"
+                   "a.col_poniente,"
+                   "a.mts_cuadrados,"
+                   "a.costo_por_metro_cuadrado,"
+                   "a.precio_total,"
+                   "a.estatus,"
+                   "a.fecha_contrato,"
+                   "a.fecha_pago_final,"
+                   "a.restante,"
+                   "a.tipo_pago,"
+                   "a.comentarios_lotes from gestion_de_lotes.lotes a join gestion_de_lotes.Clientes b "
+                   "on a.id_comprador = b.id where a.estatus = 'P'")
+    datos_lotes_proceso_compra = cursor.fetchall()
+    if not datos_lotes_proceso_compra:
+        print("No hay lotes en proceso de compra.")
+        return
+    encabezado_datos_lotes_proceso_compra = [
+        "Nombre comprador", "ID lote", "No. lote", "No. manzana", "Colindancia norte", "Colindancia sur",
+        "Colindancia oriente", "Colindancia poniente", "Metros cuadrados", "Costo por metro cuadrado", "Importe total",
+        "Estatus", "Fecha de contrato", "Fecha pago final", "Restante", "Tipo de pago", "Comentarios"
+    ]
+    anchos = [50, 8, 8, 16, 50, 50, 50, 50, 18, 28, 15, 7, 18, 17, 8, 30, 300]
+    # Imprimir encabezado
+    for i, campo in enumerate(encabezado_datos_lotes_proceso_compra):
+        print(campo.ljust(anchos[i]), end=' | ')
+    print("\n" + "-" * (sum(anchos) + len(anchos) * 3))
 
-    # Frame para botones
-    button_frame = ttk.Frame(main_frame)
-    button_frame.pack(expand=True)
+    for lotes in datos_lotes_proceso_compra:
+        fila = [
+            str(lotes[0]), str(lotes[1]), str(lotes[2]), str(lotes[3]), str(lotes[4]),
+            str(lotes[5]), str(lotes[6]), str(lotes[7]), str(lotes[8]), str(lotes[9]),
+            str(lotes[10]), str(lotes[11]), str(lotes[12]), str(lotes[13]), str(lotes[14]),
+            str(lotes[15]), str(lotes[16])
+        ]
+        for i, celda in enumerate(fila):
+            print(celda.ljust(anchos[i]), end=' | ')
+        print()
+    input("\nPresiona Enter para continuar...")
 
-    # Estilo para los botones
-    button_style = ttk.Style()
-    button_style.configure('Menu.TButton', padding=10, width=40)
+def mostrar_todos_los_datos_de_lotes_disponibles(cursor):
+    print("LISTA DE TODOS LOS LOTES DISPONIBLES: ")
+    cursor.execute("select "
+                   "id_lote, "
+                   "no_lote, "
+                   "no_manzana,"
+                   "col_norte,"
+                   "col_sur,"
+                   "col_oriente,"
+                   "col_poniente,"
+                   "mts_cuadrados,"
+                   "costo_por_metro_cuadrado,"
+                   "precio_total,"
+                   "estatus,"
+                   "fecha_contrato,"
+                   "fecha_pago_final,"
+                   "restante,"
+                   "tipo_pago,"
+                   "comentarios_lotes from gestion_de_lotes.lotes "
+                   "where estatus = 'D'")
+    datos_lotes_disponibles = cursor.fetchall()
+    if not datos_lotes_disponibles:
+        print("No hay lotes disponibles.")
+        return
+    encabezado_datos_lotes_disponibles = [
+        "ID lote", "No. lote", "No. manzana", "Colindancia norte", "Colindancia sur",
+        "Colindancia oriente", "Colindancia poniente", "Metros cuadrados", "Costo por metro cuadrado", "Importe total",
+        "Estatus", "Fecha de contrato", "Fecha pago final", "Restante", "Tipo de pago", "Comentarios"
+    ]
+    anchos = [8, 8, 16, 50, 50, 50, 50, 18, 28, 15, 7, 18, 17, 8, 30, 300]
+    # Imprimir encabezado
+    for i, campo in enumerate(encabezado_datos_lotes_disponibles):
+        print(campo.ljust(anchos[i]), end=' | ')
+    print("\n" + "-" * (sum(anchos) + len(anchos) * 3))
 
-    # Funciones para los botones
-    def create_menu_button(text, command):
-        return ttk.Button(button_frame, text=text, command=command, style='Menu.TButton')
+    for lotes in datos_lotes_disponibles:
+        fila = [
+            str(lotes[0]), str(lotes[1]), str(lotes[2]), str(lotes[3]), str(lotes[4]),
+            str(lotes[5]), str(lotes[6]), str(lotes[7]), str(lotes[8]), str(lotes[9]),
+            str(lotes[10]), str(lotes[11]), str(lotes[12]), str(lotes[13]), str(lotes[14]),
+            str(lotes[15])
+        ]
+        for i, celda in enumerate(fila):
+            print(celda.ljust(anchos[i]), end=' | ')
+        print()
+    input("\nPresiona Enter para continuar...")
+# Pendiente
+def modificar_lote(cursor):
+    print("MODIFICAR LOTE")
+    no_manzana = input("Ingrese el número de manzana: ").strip()
+    no_lote = input("Ingrese el número del lote: ").strip()
 
-    # Crear botones del menú
-    buttons = [
-        ("Iniciar la compra de lote", lambda: lot_purchase(cursor)),
-        ("Consultar un lote", lambda: lot_consultation(cursor)),
-        ("Consultar sumatoria de importes finiquitados", lambda: sum_of_settled_amounts(cursor)),
-        ("Consultar sumatoria de abonos", lambda: sum_of_payments_for_lots_to_be_sold(cursor)),
-        ("Consultar saldo de un lote", lambda: balance_consultation(cursor)),
-        ("Consultar datos de un cliente", lambda: client_consultation(cursor)),
-        ("Modificar registro", lambda: info_adjustment(cursor, connection)),
-        ("Chatear con asistente virtual", lambda: LotSalesAssistant().chat()),
-        ("Registrar abono", lambda: recording_installment(cursor)),
-        ("Salir", root.destroy)
+    # Buscar el lote con unión a la tabla clientes
+    consulta = """
+        SELECT l.*, c.nombre AS nombre_comprador
+        FROM Lotes l
+        LEFT JOIN clientes c ON l.id_comprador = c.id_comprador
+        WHERE l.no_manzana = %s AND l.no_lote = %s
+    """
+    cursor.execute(consulta, (no_manzana, no_lote))
+    lote = cursor.fetchone()
+
+    if lote is None:
+        print("No se encontró un lote con esos datos.")
+        return
+
+    # Mostrar la información del lote verticalmente
+    print("\nDatos actuales del lote:")
+    for campo, valor in lote.items():
+        print(f"{campo}: {valor}")
+
+    if lote["id_comprador"] is None:
+        print("\nEste lote no tiene comprador asignado. No se puede modificar.")
+        return
+
+    print("\nDeje en blanco los campos que no desea modificar.")
+
+    nuevos_datos = {}
+
+    # Campos modificables
+    campos_modificables = [
+        "mts_cuadrados",
+        "costo_por_metro_cuadrado",
+        "fecha_contrato",
+        "tipo_pago",
+        "comentarios_lotes"
     ]
 
-    for text, command in buttons:
-        btn = create_menu_button(text, command)
-        btn.pack(pady=5)
+    for campo in campos_modificables:
+        valor = input(f"Ingrese nuevo valor para {campo} (actual: {lote[campo]}): ").strip()
+        if valor != "":
+            nuevos_datos[campo] = valor
 
-    # Iniciar loop principal
-    root.mainloop()
+    if not nuevos_datos:
+        print("No se ingresaron cambios.")
+        return
 
+    # Construir la consulta de actualización
+    set_clause = ", ".join([f"{campo} = %s" for campo in nuevos_datos])
+    valores = list(nuevos_datos.values()) + [no_manzana, no_lote]
 
-def sql_connection():
-    try:
-        connection = mysql.connector.connect(
-            host='localhost',
-            database='gestion_de_lotes',
-            user='root',
-            password='mysql24$^ui(yuAs'
-        )
-        return connection
-    except Error as e:
-        messagebox.showerror("Error de Conexión", f"Error al conectar a MySQL: {e}")
-        return None
-
-
-def get_connection():
-    global connection
-    try:
-        if not connection.is_connected():
-            connection = sql_connection()
-        return connection
-    except:
-        messagebox.showerror("Error", "Error al obtener la conexión a la base de datos")
-        return None
+    actualizacion = f"""
+        UPDATE Lotes
+        SET {set_clause}
+        WHERE no_manzana = %s AND no_lote = %s
+    """
+    cursor.execute(actualizacion, valores)
+    print("Lote actualizado correctamente.") # pendiente
 
 
-if __name__ == "__main__":
-    try:
-        connection = sql_connection()
-        if connection and connection.is_connected():
-            cursor = connection.cursor()
-            update_dollar_price(cursor)
-            main_menu(cursor)
-            connection.commit()
-            cursor.close()
-            connection.close()
-            messagebox.showinfo("Información", "Conexión a MySQL cerrada")
-    except Exception as e:
-        messagebox.showerror("Error", f"Error en la aplicación: {e}")
+def mostrar_detalles_lotes_vendidos(cursor):
+    cursor.execute("select count(*) from gestion_de_lotes.lotes where estatus = 'V'")
+    no_lotes_vendidos = cursor.fetchone()[0]
+    print(f"Número de lotes vendidos: {no_lotes_vendidos}")
+    cursor.execute("select sum(precio_total) from gestion_de_lotes.lotes where estatus = 'V'")
+    sumatoria_total_lotes_vendidos = cursor.fetchone()[0]
+    cantidad = f"$ {sumatoria_total_lotes_vendidos:,.2f} pesos"
+    print(f"Suma de los precios totales de los lotes vendidos: {cantidad}")
+    cursor.execute("select "
+                   "b.nombre, "
+                   "a.id_lote, "
+                   "a.no_lote, "
+                   "a.no_manzana,"
+                   "a.mts_cuadrados,"
+                   "a.costo_por_metro_cuadrado,"
+                   "a.precio_total,"
+                   "a.estatus,"
+                   "a.fecha_contrato,"
+                   "a.fecha_pago_final,"
+                   "a.tipo_pago,"
+                   "a.comentarios_lotes from gestion_de_lotes.lotes a join gestion_de_lotes.Clientes b "
+                   "on a.id_comprador = b.id where a.estatus = 'V'")
+    detalles_lotes_vendidos = cursor.fetchall()
+    if not detalles_lotes_vendidos:
+        print("No hay lotes vendidos.")
+        return
+    encabezado_lotes = [
+        "ID Lote", "No. lote", "No. manzana", "Metros cuadrados", "Costo por metro cuadrado", "Importe total",
+        "Estatus", "Fecha de contrato", "Fecha pago final", "Tipo de pago", "Comentarios"
+    ]
+    # Ajustes de ancho por columna
+    anchos = [8, 8, 11, 16, 25, 13, 7, 20, 17, 30, 300]
+
+
+    for lotes in detalles_lotes_vendidos:
+        nombre_comprador = lotes[0]
+        print(f"\nNombre del comprador: {nombre_comprador}")
+        # Imprimir encabezado
+        for i, campo in enumerate(encabezado_lotes):
+            print(campo.ljust(anchos[i]), end=' | ')
+        print("\n" + "-" * (sum(anchos) + len(anchos) * 3))
+        fila = [
+            str(lotes[1]), str(lotes[2]), str(lotes[3]), str(lotes[4]), str(lotes[5]),
+            str(lotes[6]), str(lotes[7]), str(lotes[8]), str(lotes[9]), str(lotes[10]),
+            str(lotes[11])
+        ]
+        for i, celda in enumerate(fila):
+            print(celda.ljust(anchos[i]), end=' | ')
+        print()
+    input("\nPresiona Enter para continuar...")
+
+def mostrar_detalles_lotes_proceso_de_compra(cursor):
+    cursor.execute("select count(*) from gestion_de_lotes.Lotes where estatus = 'P'")
+    no_lotes_proceso_compra = cursor.fetchone()[0]
+    print(f"Número de lotes en proceso de compra: {no_lotes_proceso_compra}")
+    cursor.execute("select sum(precio_total) from gestion_de_lotes.lotes where estatus = 'P'")
+    sumatoria_total_lotes_en_proceso_compra = cursor.fetchone()[0]
+    cantidad = f"$ {sumatoria_total_lotes_en_proceso_compra:,.2f} pesos"
+    print(f"Suma de los precios totales de los lotes en proceso de compra: {cantidad}")
+    cursor.execute("""select a.id_lote, a.no_lote, a.no_manzana, a.precio_total - b.pagado
+                      from gestion_de_lotes.lotes a inner join (select id_comprador, id_lote, sum(cantidad) as pagado
+                      from gestion_de_lotes.pagos group by id_comprador, id_lote) b on a.id_comprador = b.id_comprador 
+                      and a.id_lote = b.id_lote and a.estatus = 'P'""")
+    datos = cursor.fetchall()
+    cobranza_pendiente = sum(fila[3] for fila in datos if fila[3] is not None)
+    print(f"Cobranza pendiente: $ {cobranza_pendiente:,.2f} pesos")
+    suma_abonos_hechos = sumatoria_total_lotes_en_proceso_compra - cobranza_pendiente
+    print(f"Suma total de los pagos hechos hasta el momento de estos lotes: $ {suma_abonos_hechos:,.2f} pesos")
+    cursor.execute("select "
+                   "b.nombre, "
+                   "a.id_lote, "
+                   "a.no_lote, "
+                   "a.no_manzana,"
+                   "a.mts_cuadrados,"
+                   "a.costo_por_metro_cuadrado,"
+                   "a.precio_total,"
+                   "a.estatus,"
+                   "a.fecha_contrato,"
+                   "a.restante,"
+                   "a.tipo_pago,"
+                   "a.comentarios_lotes from gestion_de_lotes.lotes a join gestion_de_lotes.Clientes b "
+                   "on a.id_comprador = b.id where a.estatus = 'P'")
+    detalles_lotes_proceso_compra = cursor.fetchall()
+    if not detalles_lotes_proceso_compra:
+        print("No hay lotes en proceso de compra.")
+        return
+    encabezado_lotes = [
+        "ID Lote", "No. lote", "No. manzana", "Metros cuadrados", "Costo por metro cuadrado", "Importe total",
+        "Estatus", "Fecha de contrato", "Saldo restante", "Tipo de pago", "Comentarios"
+    ]
+    # Ajustes de ancho por columna
+    anchos = [8, 8, 11, 16, 25, 13, 7, 20, 20, 30, 300]
+
+
+    for lotes in detalles_lotes_proceso_compra:
+        nombre_comprador = lotes[0]
+        print(f"\nNombre del comprador: {nombre_comprador}")
+        # Imprimir encabezado
+        for i, campo in enumerate(encabezado_lotes):
+            print(campo.ljust(anchos[i]), end=' | ')
+        print("\n" + "-" * (sum(anchos) + len(anchos) * 3))
+        fila = [
+            str(lotes[1]), str(lotes[2]), str(lotes[3]), str(lotes[4]), str(lotes[5]),
+            str(lotes[6]), str(lotes[7]), str(lotes[8]), str(lotes[9]), str(lotes[10]),
+            str(lotes[11])
+        ]
+        for i, celda in enumerate(fila):
+            print(celda.ljust(anchos[i]), end=' | ')
+        print()
+    input("\nPresiona Enter para continuar...")
+
+
+
+######################################################################################################
+
+# Funciones base
+
+def opreaciones_clientes(cursor):
+    while True:  # Bucle infinito para desplegar el submenú de las operaciones sobre los clientes
+        print("<1> Registrar un cliente")
+        print("<2> Visualizar los datos de un cliente")
+        print("<3> Modificar cualquier dato de un cliente")
+        print("<Cualquier tecla> Salir")
+        eleccion = input("¿Qué es lo que quiere hacer?")
+        if eleccion == "1":
+            registrar_cliente(cursor)
+        elif eleccion == "2":
+            mostrar_datos_cliente(cursor)
+        elif eleccion == "3":
+            modificar_cliente(cursor)
+        else:
+            break
+
+def consulta_de_saldos_y_ganancias(cursor):
+    while True:  # Bucle infinito para desplegar el submenú de las operaciones sobre los clientes
+        print("<1> Consultar detalles de los lotes en proceso de compra")
+        print("<2> Consultar detalles de los lotes vendidos")
+        print("<Cualquier tecla> Salir")
+        eleccion = input("¿Qué es lo que quiere hacer?")
+        if eleccion == "1":
+            mostrar_detalles_lotes_proceso_de_compra(cursor)
+        elif eleccion == "2":
+            mostrar_detalles_lotes_vendidos(cursor)
+        else:
+            break
+
+def operaciones_lotes(cursor):
+    while True:  # Bucle infinito para desplegar el submenú de las operaciones sobre los clientes
+        print("<1> Consultar los datos de los lotes vendidos")
+        print("<2> Consultar los datos de los lotes en proceso de compra")
+        print("<3> Consultar los datos de los lotes disponibles")
+        print("<4> Modificar un dato de un lote")
+        print("<Cualquier tecla> Salir")
+        eleccion = input("¿Qué es lo que quiere hacer?")
+        if eleccion == "1":
+            mostrar_todos_los_datos_de_lotes_vendidos(cursor)
+        elif eleccion == "2":
+            mostrar_todos_los_datos_de_lotes_proceso_compra(cursor)
+        elif eleccion == "3":
+            mostrar_todos_los_datos_de_lotes_disponibles(cursor)
+        elif eleccion == "4":
+            modificar_lote(cursor)
+        else:
+            break
+
+def registrar_una_venta_o_un_abono(cursor):
+    pass
+def modificar_pagos_por_lote(cursor):
+    # 1. Pedir datos al usuario
+    manzana = input("Ingresa el número de manzana: ").strip()
+    lote = input("Ingresa el número de lote: ").strip()
+
+    # 2. Buscar id_lote
+    cursor.execute("""
+                   SELECT id_lote
+                   FROM gestion_de_lotes.Lotes
+                   WHERE no_manzana = %s
+                     AND no_lote = %s
+                   """, (manzana, lote))
+    resultado = cursor.fetchone()
+
+    if not resultado:
+        print("No se encontró ningún lote con esos datos.")
+        return
+    id_lote = resultado[0]
+
+    # 3. Buscar pagos relacionados y obtener el nombre del comprador
+    cursor.execute("""
+                   SELECT id_pago,
+                          fecha,
+                          id_comprador,
+                          id_lote,
+                          no_abono,
+                          cantidad,
+                          no_recibo,
+                          moneda,
+                          tipo_cambio,
+                          cantidad_extranjera,
+                          comentarios_pagos
+                   FROM gestion_de_lotes.Pagos 
+                   WHERE id_lote = %s
+                   """, (id_lote,))
+    pagos = cursor.fetchall()
+
+    if not pagos:
+        print("No hay pagos registrados para ese lote.")
+        return
+
+    cursor.execute("""SELECT c.nombre 
+                      FROM gestion_de_lotes.Clientes c join gestion_de_lotes.Pagos p 
+                      ON c.id = p.id_comprador
+                      WHERE p.id_lote = %s LIMIT 1""", (id_lote,))
+    nombre = cursor.fetchone()[0]
+
+    # 4. Mostrar los pagos como tabla
+    print("Nombre del comprador: {}".format(nombre))
+    print("\nPagos encontrados:")
+    encabezado = [
+        "ID Pago", "Fecha", "ID_Comprador", "ID_lote", "Abono", "Cantidad",
+        "No. Recibo", "Moneda", "Tipo Cambio",
+        "Cant. Extranjera", "Comentarios"
+    ]
+    # Ajustes de ancho por columna
+    anchos = [8, 12, 20, 10, 7, 10, 12, 8, 13, 18, 300]
+
+    # Imprimir encabezado
+    for i, campo in enumerate(encabezado):
+        print(campo.ljust(anchos[i]), end=' | ')
+    print("\n" + "-" * (sum(anchos) + len(anchos) * 3))
+
+    # Imprimir filas
+    for pago in pagos:
+        fila = [
+            str(pago[0]), str(pago[1]), str(pago[2]), str(pago[3]), str(pago[4]),
+            str(pago[5]), str(pago[6]), str(pago[7]), str(pago[8]), str(pago[9]),
+            str(pago[10])
+        ]
+        for i, celda in enumerate(fila):
+            print(celda.ljust(anchos[i]), end=' | ')
+        print()
+
+    # 5. Permitir al usuario elegir un pago a modificar por su ID
+    while True:
+        id_elegido = input("\nIngresa el ID del pago que deseas modificar (o escribe 'salir' para terminar): ").strip()
+        if id_elegido.lower() == 'salir':
+            break
+
+        try:
+            id_pago = int(id_elegido)
+        except ValueError:
+            print("ID inválido. Debe ser un número.")
+            continue
+
+        # Verificar si el ID ingresado está en la lista de pagos
+        pagos_ids = [p[0] for p in pagos]
+        if id_pago not in pagos_ids:
+            print("Ese ID no está en la lista de pagos mostrados.")
+            continue
+
+        # Pedir nuevos valores
+        nuevo_recibo = input("Nuevo número de recibo (deja en blanco para no cambiar): ").strip()
+        nueva_fecha = input("Nueva fecha (YYYY-MM-DD) (deja en blanco para no cambiar): ").strip()
+        nuevos_comentarios = input("Nuevo comentario (deja en blanco para no cambiar): ").strip()
+
+        campos = []
+        valores = []
+
+        if nuevo_recibo:
+            campos.append("no_recibo = %s")
+            valores.append(nuevo_recibo)
+        if nueva_fecha:
+            campos.append("fecha = %s")
+            valores.append(nueva_fecha)
+        if nuevos_comentarios:
+            campos.append("comentarios_pagos = %s")
+            valores.append(nuevos_comentarios)
+
+        if campos:
+            sql = f"UPDATE pagos SET {', '.join(campos)} WHERE id_pago = %s"
+            valores.append(id_pago)
+            cursor.execute(sql, tuple(valores))
+            print("Pago actualizado.\n")
+        else:
+            print("No se realizaron cambios.\n")
+
+def desplegar_pagos_de_un_lote(cursor):
+    no_manzana = input("Ingrese el número de manzana: ").strip()
+    no_lote = input("Ingrese el número del lote: ").strip()
+
+    cursor.execute(f"""select a.nombre from gestion_de_lotes.Clientes a join gestion_de_lotes.Lotes b 
+                      on a.id = b.id_comprador where b.no_lote = {no_lote} and no_manzana = {no_manzana}""")
+    nombre_comprador = cursor.fetchone()[0]
+    print(f"Nombre del comprador: {nombre_comprador}\n")
+    cursor.execute(f"""select b.estatus as estatus_lote, a.id_pago, a.fecha, a.id_comprador, a.id_lote, a.no_abono, a.cantidad, a.no_recibo, 
+                             a.tipo_pago, a.moneda, a.tipo_cambio, a.cantidad_extranjera, a.comentarios_pagos
+                             from gestion_de_lotes.Pagos a join gestion_de_lotes.Lotes b on a.id_lote = b.id_lote 
+                             where b.no_lote = {no_lote} and b.no_manzana = {no_manzana}
+    """)
+    pagos_rescatados = cursor.fetchall()
+    encabezado_pagos_rescatados = [
+        "Estatus lote", "ID pago", "Fecha", "ID comprador", "ID lote",
+        "No. abono", "Cantidad abonada", "No. recibo", "Tipo de pago", "Moneda",
+        "Tipo de cambio", "Cantidad extranjera", "Comentarios pagos"
+    ]
+    # Ajustes de ancho por columna
+    anchos = [12, 7, 15, 13, 8, 9, 17, 10, 50, 6, 15, 20, 300]
+    # Imprimir encabezado
+    for i, campo in enumerate(encabezado_pagos_rescatados):
+        print(campo.ljust(anchos[i]), end=' | ')
+    print("\n" + "-" * (sum(anchos) + len(anchos) * 3))
+    for lotes in pagos_rescatados:
+        fila = [
+            str(lotes[0]), str(lotes[1]), str(lotes[2]), str(lotes[3]), str(lotes[4]),
+            str(lotes[5]), str(lotes[6]), str(lotes[7]), str(lotes[8]), str(lotes[9]),
+            str(lotes[10]), str(lotes[11])
+        ]
+        for i, celda in enumerate(fila):
+            print(celda.ljust(anchos[i]), end=' | ')
+        print()
+    input("\nPresiona Enter para continuar...")
+
+def menu_principal(cursor):
+    # Menú principal en la consola
+    while True:  # Bucle infinito que se ejecuta hasta que el usuario quiera salir del programa
+        print("Sistema de control de venta de lotes avanzado. Menú principal")
+        print("<1> Operaciones sobre clientes")
+        print("<2> Hacer una consulta de los saldos y las ganancias")
+        print("<3> Operaciones sobre lotes")
+        print("<4> Registrar una venta o un abono")
+        print("<5> Modificar datos de un pago")
+        print("<6> Visualizar los pagos hechos de un lote en proceso de compra")
+        print("<Cualquier tecla> Salir")
+        eleccion = input("Seleccione la operación que quiera realizar: ")
+        if eleccion == "1":  # Si el usuario quiere revisar o modificar algo acerca de los clientes
+            opreaciones_clientes(cursor)
+        elif eleccion == "2":  # Si el usuario quiere consultar información específica de saldos y ganancias
+            consulta_de_saldos_y_ganancias(cursor)
+        elif eleccion == "3":  # Si el usuario quiere revisar o modificar algo acerca de los lotes registrados
+            operaciones_lotes(cursor)
+        elif eleccion == "4":  # Si el usuario quiere iniciar con el registro de una venta o iniciar el proceso de una
+            pass
+        elif eleccion == "5":  # Si el usuario quiere revisar o modificar algo acerca de un pago registrado
+            modificar_pagos_por_lote(cursor)
+        elif eleccion == "6":
+            desplegar_pagos_de_un_lote(cursor)
+        else:
+            break
+
+    """
+    # rule_system = ExpertSystem(float(exchange_rate))  # Instancia del sistema experto
+    # # Cada vez que se ejecuta el programa se entrena el sistema experto con los datos dentro del archivo Lotes.csv
+    # rule_system.train_model(r"C:\\Users\SERGIUS\Documents\Abraham\Proyecto modular\Archivos CSV\Lotes.csv")
+    while True:  # Bucle infinito que se ejecuta hasta que el usuario quiera salir del programa
+        print("\n\nIniciar la compra de lote: (1)")
+        print("Consultar un lote: (2)")
+        print("Consultar la sumatoria de los importes finiquitados: (3)")
+        print("Consultar la sumatoria de los abonos de los lotes en proceso de compra: (4)")
+        print("Consultar el saldo de un lote: (5)")
+        print("Consultar los datos de un cliente: (6)")
+        print("Hacer ajuste de datos (7)")
+        print("Chatear con asistente virtual: (8)")  # Opción para llamar al chatbot
+        print("Registrar un abono de un lote en proceso de compra: (9)")
+        print("Salir (Cualquier tecla)\n")
+        eleccion = input("Seleccione la operación que quiera realizar: ")
+        if eleccion == "1":  # Si se quiere registrar la compra de un lote se llama a la función "compra de lote"
+            lot_purchase(cursor)
+            subprocess.call("cls", shell=True)
+        elif eleccion == "2":  # Si se quiere consultar los datos de un lote en específico se llama a la función
+            # "Consulta de lote"
+            lot_consultation(cursor)
+            subprocess.call("cls", shell=True)
+        elif eleccion == "3":  # Si se quiere consultar la sumatoria de los montos de los lotes ya comprados se llama
+            # a la función "Sumatoria de montos finiquitados"
+            sum_of_settled_amounts(cursor)
+            subprocess.call("cls", shell=True)
+        elif eleccion == "4":  # Si se quiere consultar la sumatoria de los abonos de los lotes en proceso de compra
+            # se llama a la función correspondiente
+            sum_of_payments_for_lots_to_be_sold(cursor)
+            subprocess.call("cls", shell=True)
+        elif eleccion == "5":  # Si se quiere consultar el saldo de un lote en proceso de compra se llama a la función
+            # "Consulta de saldo"
+            balance_consultation(cursor)
+            subprocess.call("cls", shell=True)
+        elif eleccion == "6":  # Si se quieren consultar los datos de un cliente en específico se llama a la función
+            # "Consulta de cliente"
+            client_consultation(cursor)
+            subprocess.call("cls", shell=True)
+        elif eleccion == "7":  # Opción para modificar algún dato de algún registro
+            # Pendiente
+            subprocess.call("cls", shell=True)
+        elif eleccion == "8":  # Opción para llamar al chatbot
+            assistant = LotSalesAssistant()
+            assistant.chat()
+            subprocess.call("cls", shell=True)
+        elif eleccion == "9":  # Opción para registrar un abono en una compra de un lote por parcialidades
+            recording_installment(cursor)
+            subprocess.call("cls", shell=True)
+        else:
+            break
+            
+    """
+
+
+def conexion_sql():  # Función para conectar a la base de datos
+    # Conectar a la base de datos MySQL
+    return mysql.connector.connect(  # Retorno de la conexión a la base de datos correspondiente
+        host='localhost',
+        database='gestion_de_lotes',
+        user='root',
+        password='mysql24$^ui(yuAs'
+    )
+
+
+def conseguir_conexion():  # Función para obtener la conexión a la base de datos para el asistente virtual
+    global conexion  # Asignación de la conexión como global para que sea accesible en el código principal y se pueda
+    # importar en cualquier momento desde alguna clase del proyecto
+    if not conexion.is_connected():  # Si la conexión se interrumpió
+        conexion = conexion_sql()  # Volver a intentar a conectar a la base de datos
+    return conexion  # Retorno de la conexión
+
+#################################################
+try:
+    conexion = conexion_sql()  # Conexión inicial
+    # connection.autocommit = False
+except Error as e:  # Si no hubo conexión por alguna razón
+    print("(1)Error al conectar a MySQL", e)
+
+if __name__ == "__main__":  # Si este archivo se está ejecutando como el programa principal
+    if conexion.is_connected():  # Si la conexión ha sido exitosa
+        cursor = conexion.cursor()  # Se crea el cursor necesario para ejecutar consultas
+        # ajuste_de_informacion(cursor, connection)
+        actualizar_precio_dolar(cursor)  # Llamada a la función que actualiza el precio del dólar en la base de datos
+        menu_principal(cursor)  # Llamada a la función que contiene el menú
+        conexion.commit()  # Confirmar los cambios en la base de datos
+        cursor.close()  # Cierra del cursor
+        conexion.close()  # Se cierra la conexión para confirmar el cierre definitivo de la sesión
+        print("Conexión a MySQL cerrada")  # Mensaje del cierre de la conexión

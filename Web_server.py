@@ -7,11 +7,11 @@
 # # el precio del dólar
 # import mysql.connector  # Para la conexión con la base de datos MySQL
 # from mysql.connector import Error  # Para lanzar un mensaje de error en caso de no poder acceder a la base de datos
-from Payment_Options import PaymentOptions  # Clase del proyecto en donde están las formas posibles de pago
+from OpcionesPago import OpcionesPago  # Clase del proyecto en donde están las formas posibles de pago
 # from Sales_assistant import LotSalesAssistant  # Nueva importación
 
 from flask import Flask, render_template, request, redirect, url_for
-from Payment_Options import PaymentOptions
+from OpcionesPago import OpcionesPago
 from Data_Import_and_processing import conexion_sql
 
 app = Flask(__name__)
@@ -57,7 +57,7 @@ def guardar_compra():
     # Calcular el precio del lote (usando los metros cuadrados)
     # Llamar a la lógica de PaymentOptions
 
-    payment = PaymentOptions(conexion)
+    payment = OpcionesPago(conexion)
     client_id = obtener_o_registrar_cliente(cliente)
 
     cursor.execute(f"SELECT MtsCuadrados FROM gestion_de_lotes.Lotes WHERE NoManzana = {manzana} AND NoLote = {lote}")
@@ -65,12 +65,12 @@ def guardar_compra():
     total = mts * precio
 
     if forma_pago == "contado":
-        payment.cash_payment(cursor, lote, manzana, precio, total, client_id)
+        payment.pago_de_contado(cursor, lote, manzana, precio, total, client_id)
     elif forma_pago == "parcialidades":
-        payment.payment_by_installments(cursor, lote, manzana, precio, total, client_id)
+        payment.pago_por_anticipo_parcialidades(cursor, lote, manzana, precio, total, client_id)
     elif forma_pago == "especie":
         # Aquí podrías pedir descripción antes
-        payment.payment_in_kind(cursor, lote, manzana, precio, total, client_id)
+        payment.pago_en_especie(cursor, lote, manzana, precio, total, client_id)
 
     return redirect(url_for("mostrar_lotes_disponibles"))
 

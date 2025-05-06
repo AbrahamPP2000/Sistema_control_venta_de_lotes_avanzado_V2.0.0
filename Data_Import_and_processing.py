@@ -7,7 +7,7 @@ from datetime import datetime  # Para la extracción de la fecha actual del sist
 # el precio del dólar
 import mysql.connector  # Para la conexión con la base de datos MySQL
 from mysql.connector import Error  # Para lanzar un mensaje de error en caso de no poder acceder a la base de datos
-from Payment_Options import PaymentOptions  # Clase del proyecto en donde están las formas posibles de pago
+from OpcionesPago import OpcionesPago  # Clase del proyecto en donde están las formas posibles de pago
 from Sales_assistant import LotSalesAssistant  # Nueva importación
 
 # Abraham Pelayo Pinedo
@@ -64,7 +64,7 @@ def actualizar_precio_dolar(cursor):
             print("No se pudo encontrar el tipo de cambio en la página.")  # Impresión del mensaje correspondiente
     else:  # Si no se pudo acceder a la página
         print(f"Error al acceder a la página: {response.status_code}")  # Impresión del mensaje correspondiente
-
+"""
 
 def sum_of_settled_amounts(cursor):
     # Consulta correspondiente para la suma de los importes finiquitados
@@ -137,12 +137,13 @@ def lot_consultation(cursor):
 # Esta función está nada más para hacer ajustes de información en las bases de datos por si se requiere
 def info_adjustment(cursor, connection):
     # Ruta del archivo correspondiente
-    df = pd.read_csv(r"C:\Users\SERGIUS\Documents\Abraham\Proyecto modular\Archivos CSV\Lotes.csv")
+    df = pd.read_csv(r"C:\\Users\SERGIUS\Documents\Abraham\Proyecto modular\Archivos CSV\Lotes.csv")
     print(df)  # Impresión de los datos en formato bruto para confirmar que los datos se leyeron
     for _, row in df.iterrows():  # Bucle para recorrer cada registro
         # Consulta para insertar los datos en la tabla correspondiente
-        sql = """INSERT INTO Gestion_de_lotes.Lotes (NoManzana, NoLote, Direccion, MtsCuadrados, CostoMetroCuadrado,
-        PrecioTotal, Estatus) VALUES (%s, %s, %s, %s, %s, %s, %s)"""
+       sql = """#INSERT INTO Gestion_de_lotes.Lotes (NoManzana, NoLote, Direccion, MtsCuadrados, CostoMetroCuadrado,
+        #PrecioTotal, Estatus) VALUES (%s, %s, %s, %s, %s, %s, %s)
+"""
         cursor.execute(sql, tuple(row))  # Ejecución de la consulta
         connection.commit()  # Guardado de los cambios en la base de datos
     subprocess.call("cls", shell=True)
@@ -334,6 +335,7 @@ def recording_installment(cursor):
     client_id = cursor.fetchone()[0]  # Obtención del ID del cliente
     # Llamada a la función correspondiente para registrar el abono
     payment_method.payment_by_installments(cursor, no_lote, no_manzana, price_per_square_meter, lot_price, client_id)
+    """
 #############################################################################################################
 #############################################################################################################
 
@@ -570,7 +572,7 @@ def mostrar_todos_los_datos_de_lotes_disponibles(cursor):
         for i, celda in enumerate(fila):
             print(celda.ljust(anchos[i]), end=' | ')
         print()
-    input("\nPresiona Enter para continuar...")
+
 # Pendiente
 def modificar_lote(cursor):
     print("MODIFICAR LOTE")
@@ -752,7 +754,7 @@ def mostrar_detalles_lotes_proceso_de_compra(cursor):
 
 # Funciones base
 
-def opreaciones_clientes(cursor):
+def operaciones_clientes(cursor):
     while True:  # Bucle infinito para desplegar el submenú de las operaciones sobre los clientes
         print("<1> Registrar un cliente")
         print("<2> Visualizar los datos de un cliente")
@@ -799,9 +801,46 @@ def operaciones_lotes(cursor):
             modificar_lote(cursor)
         else:
             break
-
+# Pendiente
 def registrar_una_venta_o_un_abono(cursor):
-    pass
+    # Obtener y mostrar lista de clientes registrados
+    cursor.execute("SELECT id, nombre FROM gestion_de_lotes.Clientes")
+    clientes = cursor.fetchall()
+    if not clientes:
+        print("No hay clientes registrados.")
+        return
+    encabezado_clientes = ["ID cliente", "Nombre"]
+    anchos = [10, 70]
+    for i, campo in enumerate(encabezado_clientes):
+        print(campo.ljust(anchos[i]), end=' | ')
+    print("\n" + "-" * (sum(anchos) + len(anchos) * 3))
+    for lotes in clientes:
+        fila = [
+            str(lotes[0]), str(lotes[1])
+        ]
+        for i, celda in enumerate(fila):
+            print(celda.ljust(anchos[i]), end=' | ')
+        print()
+    while True:
+        try:
+            id_ingresado = input("Ingrese el id del cliente que desea hacer la compra: ")
+            if id_ingresado not in clientes:
+                print("El cliente no existe. Proceda a registrarlo")
+                registrar_cliente(cursor)
+                break
+        except ValueError:
+            print("Ingrese dato válido, por favor.")
+
+    mostrar_todos_los_datos_de_lotes_disponibles(cursor)
+    while True:
+        try:
+            id_lote = input("Ingrese el id del lote que se va a vender: ")
+            break
+        except ValueError:
+            print("Ingrese dato válido, por favor.")
+
+
+
 def modificar_pagos_por_lote(cursor):
     # 1. Pedir datos al usuario
     manzana = input("Ingresa el número de manzana: ").strip()
@@ -969,13 +1008,13 @@ def menu_principal(cursor):
         print("<Cualquier tecla> Salir")
         eleccion = input("Seleccione la operación que quiera realizar: ")
         if eleccion == "1":  # Si el usuario quiere revisar o modificar algo acerca de los clientes
-            opreaciones_clientes(cursor)
+            operaciones_clientes(cursor)
         elif eleccion == "2":  # Si el usuario quiere consultar información específica de saldos y ganancias
             consulta_de_saldos_y_ganancias(cursor)
         elif eleccion == "3":  # Si el usuario quiere revisar o modificar algo acerca de los lotes registrados
             operaciones_lotes(cursor)
         elif eleccion == "4":  # Si el usuario quiere iniciar con el registro de una venta o iniciar el proceso de una
-            pass
+            registrar_una_venta_o_un_abono(cursor)
         elif eleccion == "5":  # Si el usuario quiere revisar o modificar algo acerca de un pago registrado
             modificar_pagos_por_lote(cursor)
         elif eleccion == "6":

@@ -487,7 +487,29 @@
 #
 # perro1.hablar()
 # gato1.hablar()
-from datetime import datetime
-current_date = datetime.now()
-print(current_date)
+
+
+
+
+
+# from datetime import datetime
+# current_date = datetime.now()
+# print(current_date)
+
+#
+# from decimal import Decimal, InvalidOperation
+#
+# entrada = input("Ingresa el monto: ")
+#
+# try:
+#     monto = Decimal(entrada)
+#     print(f"Valor ingresado: {monto:.2f}")
+# except InvalidOperation:
+#     print("Error: El valor ingresado no es un número decimal válido.")
+
+
+# print("\033[91mEste texto es rojo\033[0m")
+# print("\033[92mEste texto es verde\033[0m")
+# print("\033[93mEste texto es amarillo\033[0m")
+# print("\033[94mEste texto es azul\033[0m")
 

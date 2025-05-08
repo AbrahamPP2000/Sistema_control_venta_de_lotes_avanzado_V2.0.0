@@ -1,0 +1,23 @@
+<h2>Lotes disponibles</h2>
+<table border="1">
+    <tr>
+        {% for col in columnas %}
+            <th>{{ col }}</th>
+        {% endfor %}
+        <th>Seleccionar</th>
+    </tr>
+    {% for lote in lotes %}
+        <tr>
+            {% for campo in lote %}
+                <td>{{ campo }}</td>
+            {% endfor %}
+            <td>
+                <form action="{{ url_for('procesar_compra') }}" method="post">
+                    <input type="hidden" name="manzana" value="{{ lote[0] }}">
+                    <input type="hidden" name="lote" value="{{ lote[1] }}">
+                    <input type="submit" value="Comprar">
+                </form>
+            </td>
+        </tr>
+    {% endfor %}
+</table>

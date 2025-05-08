@@ -1,0 +1,42 @@
+Al ingresar el numero de cliente
+Desplegar los 4 datos del cliente
+1. Revisar si la tabla clientes tiene todos los datos guardados
+Si nombre o dirección o (teléfono y celular) son igual a none
+Mostrar datos incompletos en amarillo
+Else
+Datos completos en verde
+select * from gestion_de_lotes.clientes where id = 1;
+
+Desplegar datos del lote asociados en la consulta
+2. Revisar si el usuario tiene mas de un lote en compra
+Contador para contar cuantos están en Proceso y cuantos son vendidos
+Si ninguno, mostrar en rojo que no hay lote
+Else
+Poner en azul si tienen alguno en proceso
+Poner en verde si están en estado vendido
+select id_lote, no_lote, no_manzana, mts_cuadrados, costo_por_metro_cuadrado, estatus, fecha_contrato, fecha_pago_final from gestion_de_lotes.lotes where id_comprador = 1;
+
+Revisar proceso de pago de los lotes
+3. Verificar si tiene todos sus lotes pagados
+Desplegar id lote, estatus del lote y saldo restante
+Si todos pagados mostrar en verde todos los lotes liquidados
+En azul si alguno en proceso
+Rojo si no tiene ninguno
+Si el estado es vendido revisar que el saldo no sea mayor a 5000
+En caso de ser mayor mostrar lote en amarillo
+Si es mayor a cero pero menor a 5000 en azul
+Cero o menor verde
+select distinct b.id_lote, c.precio_total - b.abonado, c.estatus from gestion_de_lotes.pagos a inner join (select id_lote, id_comprador, sum(cantidad) as abonado from gestion_de_lotes.pagos where id_comprador = 24 group by id_lote) b
+on a.id_comprador = b.id_comprador and a.id_lote = b.id_lote inner join (select id_lote, id_comprador, precio_total, estatus from gestion_de_lotes.lotes where id_comprador = 24) c
+on a.id_comprador = c.id_comprador and a.id_lote = c.id_lote;
+
+Comparar cuantos metros cuadrados de tierra tiene presupuestado comprar o comprado un cliente
+4. Verificar el terreno comprado por el cliente contra el tamaño medio de los lotes
+Si menos de cero poner en azul, si mas de 0 poner en verde
+
+select sum(mts_cuadrados) - (select avg(mts_cuadrados) from gestion_de_lotes.lotes) from gestion_de_lotes.lotes where id_comprador = 1;
+Verificar en que relacional compro el lote respecto a la media de los demás
+5. Usar el promedio del metro cuadrado de todo para ver que tan caro fue el lote para los otros
+Si indicador menor a cero en azul indicar que se vendió menos de la baja
+Si es mayor a cero poner en verde que el promedio del valor de los terrenos es mas que la media de todos
+select avg(costo_por_metro_cuadrado) - (select avg(costo_por_metro_cuadrado) from gestion_de_lotes.lotes) from gestion_de_lotes.lotes where id_comprador = 1;
